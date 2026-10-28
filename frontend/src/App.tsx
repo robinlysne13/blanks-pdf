@@ -58,6 +58,13 @@ export default function App() {
     void refreshMark('initials')
   }, [refresh, refreshMark])
 
+  // Tell the server a window is still open, so a server started from the
+  // Dock can stop itself once every window is closed.
+  useEffect(() => {
+    const t = setInterval(() => void api.ping().catch(() => {}), 60_000)
+    return () => clearInterval(t)
+  }, [])
+
   const chooseFile = useCallback(() => fileInput.current?.click(), [])
 
   const openFile = useCallback(

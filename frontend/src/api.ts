@@ -30,6 +30,7 @@ const json = async <T,>(path: string, init?: RequestInit) => (await call(path, i
 
 export const api = {
   status: () => json<Status>('/api/status'),
+  ping: () => call('/api/ping'),
 
   open(file: File) {
     const body = new FormData()

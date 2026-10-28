@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import platform
 import subprocess
+import time
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +23,10 @@ ALLOWED_HOSTS = {"127.0.0.1", "localhost", "[::1]"}
 
 app = FastAPI(title="Blanks", docs_url=None, redoc_url=None)
 
+# When the app last talked to the server. The open window pings every
+# minute, so `blanks --idle-exit` can stop the server once it's closed.
+last_seen = time.monotonic()
+
 
 @app.middleware("http")
 async def local_only(request: Request, call_next):
@@ -31,8 +36,11 @@ async def local_only(request: Request, call_next):
     host = (request.headers.get("host") or "").rsplit(":", 1)[0]
     if host not in ALLOWED_HOSTS:
         return JSONResponse({"detail": "Blanks only answers on localhost."}, status_code=403)
-    if request.url.path.startswith("/api/") and request.headers.get("x-blanks") != "1":
-        return JSONResponse({"detail": "Missing X-Blanks header."}, status_code=403)
+    if request.url.path.startswith("/api/"):
+        if request.headers.get("x-blanks") != "1":
+            return JSONResponse({"detail": "Missing X-Blanks header."}, status_code=403)
+        global last_seen
+        last_seen = time.monotonic()
     return await call_next(request)
 
 
@@ -44,6 +52,11 @@ def _doc(doc_id: str) -> store.Document:
 
 
 # ------------------------------------------------------------------ status
+
+
+@app.get("/api/ping")
+def ping() -> dict[str, bool]:
+    return {"ok": True}
 
 
 @app.get("/api/status")

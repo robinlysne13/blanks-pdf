@@ -23,7 +23,17 @@ git clone https://github.com/robinlysne13/blanks-pdf.git
 cd blanks-pdf && ./start
 ```
 
-The first run builds the interface, then Blanks opens at `http://127.0.0.1:8765`. No form handy? The start screen has three sample forms to try.
+The first run builds the interface, then Blanks opens in its own window. No form handy? The start screen has three sample forms to try.
+
+Blanks uses Chrome, Edge or Brave in app mode: a window with no tabs or address bar. Without one of those it opens a normal tab in your default browser. Add `--tab` to always use a tab.
+
+### Keep it in the Dock (macOS)
+
+```bash
+scripts/make_mac_app.sh
+```
+
+This builds `Blanks.app` with its own icon in `~/Applications`. Open it, then right-click its Dock icon and choose Options, then Keep in Dock. Clicking it starts Blanks in the background and opens the window, with no terminal needed. The server stops by itself about ten minutes after you close the last Blanks window. The app points at this folder, so run the script again if you move it.
 
 ## Auto-fill
 
