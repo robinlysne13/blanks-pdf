@@ -18,6 +18,8 @@ interface Props {
 
 export function Settings({ status, marks, hasDoc, onBack, onOpenPdf, onDrawMark, onSettingsChange, onRefresh, onToast }: Props) {
   const [profile, setProfile] = useState<{ path: string; exists: boolean; entries: { key: string; value: string }[] } | null>(null)
+  // Values stay hidden until asked for, so a screen share or screenshot doesn't show them.
+  const [reveal, setReveal] = useState(false)
   const settings = status?.settings
 
   const loadProfile = useCallback(() => {
@@ -94,18 +96,20 @@ export function Settings({ status, marks, hasDoc, onBack, onOpenPdf, onDrawMark,
             </span>
             {profile && profile.entries.length > 0 ? (
               <div>
-                {profile.entries.slice(0, 6).map((e) => (
+                {(reveal ? profile.entries : profile.entries.slice(0, 6)).map((e) => (
                   <div key={e.key} className="kv">
                     <span>{e.key}</span>
-                    <span style={{ textAlign: 'right', overflowWrap: 'anywhere' }}>{e.value}</span>
+                    <span style={{ textAlign: 'right', overflowWrap: 'anywhere' }} aria-label={reveal ? undefined : 'hidden'}>
+                      {reveal ? e.value : '••••••'}
+                    </span>
                   </div>
                 ))}
-                {profile.entries.length > 6 && (
-                  <div className="kv" style={{ borderBottom: 'none' }}>
-                    <span>+ {profile.entries.length - 6} more</span>
-                    <span />
-                  </div>
-                )}
+                <div className="kv" style={{ borderBottom: 'none', alignItems: 'center' }}>
+                  <span>{!reveal && profile.entries.length > 6 ? `+ ${profile.entries.length - 6} more` : `${profile.entries.length} details`}</span>
+                  <button type="button" className="link-btn" onClick={() => setReveal((r) => !r)} aria-pressed={reveal}>
+                    {reveal ? 'Hide values' : 'Show values'}
+                  </button>
+                </div>
               </div>
             ) : (
               <p className="muted">{profile?.exists ? 'No details filled in yet. Replace the [placeholders] with your own.' : 'No profile yet. Create one to use auto-fill.'}</p>
