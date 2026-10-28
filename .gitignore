@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+*.egg-info/
+
+# Node
+node_modules/
+frontend/dist/
+
+# Personal data never belongs in the repo
+profile.md
+*.png.local
+.blanks/
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+
+# Local tool config
+.claude/

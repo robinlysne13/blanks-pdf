@@ -1,0 +1,18 @@
+#!/usr/bin/env sh
+# Start Blanks: builds the interface the first time (or after changes), then
+# runs the local server and opens it in your browser. Pass --port N or
+# --no-browser through to the server.
+set -e
+cd "$(dirname "$0")"
+
+need() { command -v "$1" >/dev/null 2>&1 || { echo "Blanks needs $1. $2"; exit 1; }; }
+need uv "Install it from https://docs.astral.sh/uv/"
+need npm "Install Node.js 20 or newer from https://nodejs.org/"
+
+if [ ! -f frontend/dist/index.html ] || [ -n "$(find frontend/src frontend/index.html frontend/public -newer frontend/dist/index.html 2>/dev/null | head -n 1)" ]; then
+  echo "Building the interface..."
+  [ -d frontend/node_modules ] || npm --prefix frontend ci --silent
+  npm --prefix frontend run build --silent
+fi
+
+exec uv run --project backend blanks "$@"
