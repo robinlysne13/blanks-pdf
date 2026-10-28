@@ -63,9 +63,43 @@ def test_settings_ignore_unknown_keys(client):
     assert r.json() == {"date_format": "iso", "send_images": True}
 
 
-def test_profile_entries_skip_placeholders(client):
+def test_profile_entries_skip_placeholders():
     config.profile_path().write_text("# me\nfull name: Sam Example\nphone: [Phone number]\n<!-- note: x -->\n")
-    assert client.get("/api/profile", headers=H).json()["entries"] == [{"key": "full name", "value": "Sam Example"}]
+    assert config.profile_entries(config.read_profile()) == [{"key": "full name", "value": "Sam Example"}]
+
+
+def test_profile_rows_include_placeholders_as_hints(client):
+    config.profile_path().write_text("full name: Sam Example\nphone: [Phone number]\n")
+    assert client.get("/api/profile", headers=H).json()["rows"] == [
+        {"key": "full name", "value": "Sam Example", "hint": ""},
+        {"key": "phone", "value": "", "hint": "Phone number"},
+    ]
+
+
+def test_profile_save_edits_in_place(client):
+    config.profile_path().write_text(
+        "# My profile\n<!--\nnote: not a detail\n-->\n\nfull name: Sam\nphone: [Phone number]\ncity: Paris\n"
+    )
+    r = client.put("/api/profile", headers=H, json={"rows": [
+        {"key": "full name", "value": "Sam Example"},          # changed
+        {"key": "phone", "value": ""},                         # still empty: keeps its hint
+        {"key": "OHIP number", "value": "1234"},               # new: added at the end
+    ]})                                                        # city: removed
+    assert r.status_code == 200
+    text = config.profile_path().read_text()
+    assert text == "# My profile\n<!--\nnote: not a detail\n-->\n\nfull name: Sam Example\nphone: [Phone number]\nOHIP number: 1234\n"
+    assert config.profile_path().stat().st_mode & 0o777 == 0o600
+
+
+def test_profile_rename_keeps_position(client):
+    config.profile_path().write_text("a: 1\nb: 2\n")
+    client.put("/api/profile", headers=H, json={"rows": [{"key": "alpha", "was": "a", "value": "1"}, {"key": "b", "value": "2"}]})
+    assert config.profile_path().read_text() == "alpha: 1\nb: 2\n"
+
+
+def test_profile_save_cleans_keys(client):
+    client.put("/api/profile", headers=H, json={"rows": [{"key": "bad:key\n", "value": "line\nbreak"}]})
+    assert config.profile_entries(config.read_profile())[-1] == {"key": "bad key", "value": "line break"}
 
 
 def test_autofill_endpoint_reports_errors(client, fillable_pdf):
@@ -85,4 +119,6 @@ def test_autofill_endpoint(client, fillable_pdf, monkeypatch):
 
 def test_example_profile_has_no_entries_until_filled(client):
     config.ensure_profile()
-    assert client.get("/api/profile", headers=H).json()["entries"] == []
+    assert config.profile_entries(config.read_profile()) == []
+    rows = client.get("/api/profile", headers=H).json()["rows"]
+    assert rows and all(r["value"] == "" and r["hint"] for r in rows)

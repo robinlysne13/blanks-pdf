@@ -161,10 +161,28 @@ async def put_mark(kind: str, request: Request) -> dict[str, bool]:
 # ------------------------------------------------------- profile, settings
 
 
+def _profile_payload() -> dict[str, Any]:
+    text = config.read_profile()
+    # No profile yet: show the example's rows so there is something to fill in.
+    rows = config.profile_rows(text if text is not None else config.EXAMPLE_PROFILE.read_text())
+    return {"path": str(config.profile_path()), "exists": text is not None, "rows": rows}
+
+
 @app.get("/api/profile")
 def get_profile() -> dict[str, Any]:
-    text = config.read_profile()
-    return {"path": str(config.profile_path()), "exists": text is not None, "entries": config.profile_entries(text)}
+    return _profile_payload()
+
+
+class ProfileBody(BaseModel):
+    rows: list[dict[str, Any]]
+
+
+@app.put("/api/profile")
+def put_profile(body: ProfileBody) -> dict[str, Any]:
+    if len(body.rows) > 200:
+        raise HTTPException(400, "That's a lot of details. Keep it under 200.")
+    config.save_profile_rows(body.rows)
+    return _profile_payload()
 
 
 @app.post("/api/profile/open")

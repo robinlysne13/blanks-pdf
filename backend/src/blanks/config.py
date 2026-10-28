@@ -33,10 +33,11 @@ def profile_path() -> Path:
 
 
 def ensure_profile() -> Path:
-    """Create the profile from the example the first time someone opens it."""
+    """Create the profile from the example the first time it's needed."""
     path = profile_path()
     if not path.exists():
         path.write_text(EXAMPLE_PROFILE.read_text())
+    path.chmod(0o600)  # personal details: readable by you only
     return path
 
 
@@ -48,22 +49,87 @@ def read_profile() -> str | None:
     return text or None
 
 
-_ENTRY = re.compile(r"^\s*[-*]?\s*([^:#\n]{1,60}):\s*(.+?)\s*$")
+_ENTRY = re.compile(r"^\s*[-*]?\s*([^:#\n]{1,60}):\s*(.*?)\s*$")
+
+
+def _entry_lines(lines: list[str]):
+    """(line index, key, raw value) for each `key: value` line outside notes."""
+    in_note = False
+    for i, line in enumerate(lines):
+        s = line.strip()
+        if in_note:
+            in_note = "-->" not in s
+            continue
+        if s.startswith("<!--"):
+            in_note = "-->" not in s
+            continue
+        if s.startswith(("#", ">")):
+            continue
+        if m := _ENTRY.match(line):
+            yield i, m.group(1).strip(), m.group(2)
+
+
+def _is_placeholder(raw: str) -> bool:
+    return raw.startswith("[") and raw.endswith("]")
+
+
+def profile_rows(text: str | None) -> list[dict[str, str]]:
+    """Every detail line. Placeholders come back as an empty value plus a hint."""
+    rows = []
+    for _, key, raw in _entry_lines((text or "").splitlines()):
+        placeholder = _is_placeholder(raw)
+        rows.append({"key": key, "value": "" if placeholder else raw, "hint": raw[1:-1] if placeholder else ""})
+    return rows
 
 
 def profile_entries(text: str | None) -> list[dict[str, str]]:
-    """`key: value` lines with a real value, skipping comments and blanks."""
-    if not text:
-        return []
-    text = re.sub(r"<!--.*?-->", "", text, flags=re.S)  # notes for the reader, not details
-    out = []
-    for line in text.splitlines():
-        if line.lstrip().startswith(("#", "<!--", ">")):
+    """Details with a real value: what auto-fill can use."""
+    return [{"key": r["key"], "value": r["value"]} for r in profile_rows(text) if r["value"]]
+
+
+def save_profile_rows(rows: list[dict[str, Any]]) -> list[dict[str, str]]:
+    """Write edited rows back into the profile, changing only the lines that
+    hold details: notes, headings and order stay as the person left them.
+    A row may carry `was`, its key before a rename."""
+    path = ensure_profile()
+    lines = path.read_text().splitlines()
+    existing: dict[str, int] = {}
+    hints: dict[str, str] = {}
+    for i, key, raw in _entry_lines(lines):
+        existing.setdefault(key, i)
+        if _is_placeholder(raw):
+            hints.setdefault(key, raw[1:-1])
+
+    def fmt(key: str, value: str, hint: str) -> str:
+        return f"{key}: {value}" if value else f"{key}: [{hint or 'not set'}]"
+
+    used: set[int] = set()
+    appended: list[str] = []
+    for row in rows:
+        key = re.sub(r"[:#\r\n]", " ", str(row.get("key", ""))).strip()[:60]
+        value = re.sub(r"[\r\n]+", " ", str(row.get("value", ""))).strip()[:500]
+        if not key:
             continue
-        m = _ENTRY.match(line)
-        if m and not m.group(2).startswith("["):
-            out.append({"key": m.group(1).strip(), "value": m.group(2)})
-    return out
+        source = str(row.get("was") or key)
+        hint = hints.get(source) or str(row.get("hint") or "")
+        idx = existing.get(source)
+        if idx is not None and idx not in used:
+            lines[idx] = fmt(key, value, hint)
+            used.add(idx)
+        else:
+            appended.append(fmt(key, value, hint))
+
+    removed = {i for i in existing.values() if i not in used}
+    out = [line for i, line in enumerate(lines) if i not in removed]
+    while out and not out[-1].strip():
+        out.pop()
+    out.extend(appended)
+
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text("\n".join(out) + "\n")
+    tmp.chmod(0o600)
+    tmp.replace(path)
+    return profile_rows(path.read_text())
 
 
 def mark_path(kind: str) -> Path:

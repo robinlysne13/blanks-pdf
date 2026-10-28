@@ -37,7 +37,7 @@ This builds `Blanks.app` with its own icon in `~/Applications`. Open it, then ri
 
 ## Auto-fill
 
-Blanks fills forms from a plain text profile you write yourself. Open **Settings → Profile → Create profile** and replace the placeholders:
+Blanks fills forms from a profile you write yourself. Edit it in **Settings → Profile**: every change saves as you type, and values stay hidden until you click Show values. It's a plain text file, so you can also edit it directly:
 
 ```text
 full name: Sam Example

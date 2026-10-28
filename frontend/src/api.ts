@@ -6,6 +6,19 @@ const HEADERS = { 'X-Blanks': '1' }
 
 export class ApiError extends Error {}
 
+export interface ProfileRow {
+  key: string
+  value: string
+  /** The placeholder text, for a detail not filled in yet. */
+  hint: string
+}
+
+interface ProfilePayload {
+  path: string
+  exists: boolean
+  rows: ProfileRow[]
+}
+
 async function call(path: string, init: RequestInit = {}): Promise<Response> {
   let res: Response
   try {
@@ -64,7 +77,13 @@ export const api = {
 
   saveMark: (kind: MarkKind, png: Blob) => json(`/api/marks/${kind}`, { method: 'PUT', body: png }),
 
-  profile: () => json<{ path: string; exists: boolean; entries: { key: string; value: string }[] }>('/api/profile'),
+  profile: () => json<ProfilePayload>('/api/profile'),
+  saveProfile: (rows: (ProfileRow & { was?: string })[]) =>
+    json<ProfilePayload>('/api/profile', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rows }),
+    }),
   openProfile: () => json<{ path: string }>('/api/profile/open', { method: 'POST' }),
 
   saveSettings: (patch: Partial<Settings>) =>
