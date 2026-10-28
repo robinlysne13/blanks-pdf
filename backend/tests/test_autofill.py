@@ -71,5 +71,16 @@ def test_empty_profile_is_an_error(fillable_pdf):
 def test_missing_cli_is_an_error(monkeypatch, tmp_path):
     monkeypatch.setenv("BLANKS_CLAUDE_BIN", "")
     monkeypatch.setattr(autofill.shutil, "which", lambda _: None)
+    monkeypatch.setattr(autofill, "CLAUDE_LOCATIONS", ())
     with pytest.raises(autofill.AutofillError, match="isn't installed"):
         autofill.run_claude("hi", {}, tmp_path, False)
+
+
+def test_finds_claude_outside_path(monkeypatch, tmp_path):
+    exe = tmp_path / "claude"
+    exe.write_text("#!/bin/sh\n")
+    exe.chmod(0o755)
+    monkeypatch.setenv("BLANKS_CLAUDE_BIN", "")
+    monkeypatch.setattr(autofill.shutil, "which", lambda _: None)
+    monkeypatch.setattr(autofill, "CLAUDE_LOCATIONS", (str(exe),))
+    assert autofill.claude_bin() == str(exe)

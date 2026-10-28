@@ -80,8 +80,19 @@ class AutofillError(Exception):
     """A problem worth showing the person as is."""
 
 
+# Where the Claude Code installer puts `claude`. Apps started from the Dock
+# get a short PATH that often misses these, so look here too.
+CLAUDE_LOCATIONS = ("~/.local/bin/claude", "~/.claude/local/claude", "/opt/homebrew/bin/claude", "/usr/local/bin/claude")
+
+
 def claude_bin() -> str | None:
-    return os.environ.get("BLANKS_CLAUDE_BIN") or shutil.which("claude")
+    if found := os.environ.get("BLANKS_CLAUDE_BIN") or shutil.which("claude"):
+        return found
+    for loc in CLAUDE_LOCATIONS:
+        path = Path(loc).expanduser()
+        if path.is_file() and os.access(path, os.X_OK):
+            return str(path)
+    return None
 
 
 def run_claude(prompt: str, schema: dict[str, Any], cwd: Path, allow_read: bool) -> dict[str, Any]:
