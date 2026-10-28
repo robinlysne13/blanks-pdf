@@ -22,6 +22,8 @@ export function ProfileCard({ onSaved }: Props) {
   const [rows, setRows] = useState<Row[] | null>(null)
   const [path, setPath] = useState('')
   const [reveal, setReveal] = useState(false)
+  // Folded by default: your details stay out of sight until you open the card.
+  const [open, setOpen] = useState(false)
   const [save, setSave] = useState<SaveState>({ state: 'idle' })
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pending = useRef(false)
@@ -109,68 +111,93 @@ export function ProfileCard({ onSaved }: Props) {
   }
 
   const filled = rows?.filter((r) => r.key && r.value).length ?? 0
+  const total = rows?.length ?? 0
   const status =
-    save.state === 'saving' ? 'Saving…' : save.state === 'saved' ? 'Saved' : save.state === 'error' ? `Couldn't save: ${save.message}` : `${filled} filled`
+    save.state === 'saving'
+      ? 'Saving…'
+      : save.state === 'saved'
+        ? 'Saved'
+        : save.state === 'error'
+          ? `Couldn't save: ${save.message}`
+          : rows
+            ? `${filled} of ${total} filled`
+            : ''
 
   return (
     <section id="profile" className="card glass">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
-        <h2>Profile</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+        <h2 style={{ flex: 1 }}>
+          <button type="button" className="collapse-head" aria-expanded={open} aria-controls="profile-body" onClick={() => setOpen((o) => !o)}>
+            <svg className="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M9 6l6 6-6 6" />
+            </svg>
+            Profile
+          </button>
+        </h2>
         <span className="muted" role="status" aria-live="polite" style={save.state === 'error' ? { color: 'var(--warn-ink)' } : undefined}>
           {save.state === 'saved' && <span style={{ color: 'var(--good)' }}>✓ </span>}
           {status}
         </span>
       </div>
-      <p>What Claude may use to fill forms. Changes save as you type, to a file on this computer that never enters the repo.</p>
 
-      {rows === null ? (
-        <span className="muted">Loading…</span>
+      {!open ? (
+        <p className="muted" style={{ margin: 0 }}>
+          The details Claude may use to fill forms. Open to view or edit them.
+        </p>
       ) : (
-        <div className="profile-rows">
-          {rows.map((r) => (
-            <div key={r.id} className="profile-row">
-              <input
-                className="profile-key mono"
-                aria-label="Detail name"
-                placeholder="label"
-                value={r.key}
-                ref={(el) => {
-                  if (el && focusId.current === r.id) {
-                    focusId.current = null
-                    el.focus()
-                  }
-                }}
-                onChange={(e) => update(r.id, { key: e.target.value })}
-              />
-              <input
-                className={`profile-value${reveal ? '' : ' masked'}`}
-                aria-label={r.key || 'Value'}
-                placeholder={r.hint || 'value'}
-                value={r.value}
-                autoComplete="off"
-                spellCheck={false}
-                onChange={(e) => update(r.id, { value: e.target.value })}
-              />
-              <button type="button" className="row-remove" aria-label={`Remove ${r.key || 'this detail'}`} onClick={() => remove(r.id)}>
-                ×
-              </button>
+        <div id="profile-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <p>What Claude may use to fill forms. Changes save as you type, to a file on this computer that never enters the repo.</p>
+
+          {rows === null ? (
+            <span className="muted">Loading…</span>
+          ) : (
+            <div className="profile-rows">
+              {rows.map((r) => (
+                <div key={r.id} className="profile-row">
+                  <input
+                    className="profile-key mono"
+                    aria-label="Detail name"
+                    placeholder="label"
+                    value={r.key}
+                    ref={(el) => {
+                      if (el && focusId.current === r.id) {
+                        focusId.current = null
+                        el.focus()
+                      }
+                    }}
+                    onChange={(e) => update(r.id, { key: e.target.value })}
+                  />
+                  <input
+                    className={`profile-value${reveal ? '' : ' masked'}`}
+                    aria-label={r.key || 'Value'}
+                    placeholder={r.hint || 'value'}
+                    value={r.value}
+                    autoComplete="off"
+                    spellCheck={false}
+                    onChange={(e) => update(r.id, { value: e.target.value })}
+                  />
+                  <button type="button" className="row-remove" aria-label={`Remove ${r.key || 'this detail'}`} onClick={() => remove(r.id)}>
+                    ×
+                  </button>
+                </div>
+              ))}
             </div>
-          ))}
+          )}
+
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px 16px' }}>
+            <button type="button" className="pill pill-glass pill-sm" onClick={add}>
+              + Add a detail
+            </button>
+            <button type="button" className="link-btn" onClick={() => setReveal((v) => !v)} aria-pressed={reveal}>
+              {reveal ? 'Hide values' : 'Show values'}
+            </button>
+            <div className="spacer" />
+            <button type="button" className="link-btn" onClick={openFile} title={path}>
+              Open the file
+            </button>
+          </div>
         </div>
       )}
-
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px 16px' }}>
-        <button type="button" className="pill pill-glass pill-sm" onClick={add}>
-          + Add a detail
-        </button>
-        <button type="button" className="link-btn" onClick={() => setReveal((v) => !v)} aria-pressed={reveal}>
-          {reveal ? 'Hide values' : 'Show values'}
-        </button>
-        <div className="spacer" />
-        <button type="button" className="link-btn" onClick={openFile} title={path}>
-          Open the file
-        </button>
-      </div>
     </section>
   )
 }
