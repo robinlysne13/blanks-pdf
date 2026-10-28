@@ -81,3 +81,8 @@ def test_autofill_endpoint(client, fillable_pdf, monkeypatch):
     doc = _open(client, fillable_pdf)
     r = client.post(f"/api/documents/{doc['id']}/autofill", headers=H)
     assert r.json()["values"] == {"full_name": "Sam Example"}
+
+
+def test_example_profile_has_no_entries_until_filled(client):
+    config.ensure_profile()
+    assert client.get("/api/profile", headers=H).json()["entries"] == []

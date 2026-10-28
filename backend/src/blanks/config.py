@@ -55,6 +55,7 @@ def profile_entries(text: str | None) -> list[dict[str, str]]:
     """`key: value` lines with a real value, skipping comments and blanks."""
     if not text:
         return []
+    text = re.sub(r"<!--.*?-->", "", text, flags=re.S)  # notes for the reader, not details
     out = []
     for line in text.splitlines():
         if line.lstrip().startswith(("#", "<!--", ">")):

@@ -2,7 +2,8 @@
 
 <!--
 Blanks gives this file to Claude when you press "Auto-fill with Claude".
-Write one `label: value` per line. Anything in [brackets] is ignored.
+Write one `label: value` per line. Replace each [placeholder], brackets
+included: a value still in [brackets] is ignored.
 Add or remove lines freely; Claude matches them to form labels.
 This file lives in ~/.blanks/profile.md and never enters the git repo.
 -->
