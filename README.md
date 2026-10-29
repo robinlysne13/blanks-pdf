@@ -2,16 +2,20 @@
 
 **Fill in the blanks.** A small app that runs on your own computer for filling in and signing PDF forms, with one-click auto-fill by Claude.
 
-![Claude has filled a lease form from the profile; its values are highlighted in blue](docs/autofill-fillable.jpg)
+![Claude has filled a lease form from the profile and the chat; its values are highlighted in blue](docs/autofill-fillable.jpg)
 
 - **Fill any form.** Fillable PDFs get live inputs over their real fields. Flat and scanned PDFs work too: click anywhere and type.
 - **Sign once.** Draw your signature and initials one time. Blanks saves them on your computer and reuses them on every form.
+- **Keep other people's signatures too.** Save a witness's or co-signer's signature and initials under their name, and place whichever one a form needs.
 - **Stamp what forms ask for.** Today's date, checkmarks and crosses are one click each.
 - **Auto-fill with Claude.** One button fills what your profile answers. It runs through your local Claude Code, so it uses your Claude subscription and needs no API key.
-- **Private by default.** The server only listens on localhost. Your PDF never leaves your computer, and Blanks keeps no copy after you download.
+- **Chat to fill the rest.** Tell Claude what goes where, or paste an email, and it fills the form from that.
+- **Private by default.** The server only listens on localhost. Your PDF never leaves your computer. Press **Done** when you're finished and Blanks forgets it.
 - **Flattened output.** The downloaded PDF has everything burned into the page, so nobody can move or edit your signature.
 
 ## Quick start
+
+Blanks is built and tested on macOS. It should also run on Linux. On Windows, use WSL, since `./start` is a shell script.
 
 You need [uv](https://docs.astral.sh/uv/) and [Node.js](https://nodejs.org/) 20 or newer. Auto-fill also needs [Claude Code](https://claude.com/claude-code), installed and signed in. Everything else works without it.
 
@@ -24,6 +28,8 @@ cd blanks-pdf && ./start
 ```
 
 The first run builds the interface, then Blanks opens in its own window. No form handy? The start screen has three sample forms to try.
+
+![The start screen: drop a PDF, or try one of three sample forms](docs/start.jpg)
 
 Blanks uses Chrome, Edge or Brave in app mode: a window with no tabs or address bar. Without one of those it opens a normal tab in your default browser. Add `--tab` to always use a tab.
 
