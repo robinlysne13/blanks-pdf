@@ -19,13 +19,40 @@ interface ProfilePayload {
   rows: ProfileRow[]
 }
 
-async function call(path: string, init: RequestInit = {}): Promise<Response> {
-  let res: Response
-  try {
-    res = await fetch(path, { ...init, headers: { ...HEADERS, ...(init.headers ?? {}) } })
-  } catch {
-    throw new ApiError("Can't reach Blanks. Is the server still running?")
+// The PDFs this window has opened. The server keeps documents in memory only,
+// so after a restart it may have forgotten one; the window then sends it again.
+// Ids come from the file's contents, so the id (and everything placed on the
+// page) stays the same.
+const openFiles = new Map<string, Blob>()
+const DOC_PATH = /^\/api\/documents\/([^/]+)\//
+
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+async function send(path: string, init: RequestInit): Promise<Response> {
+  // A server that is restarting refuses connections for a moment: try again.
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fetch(path, { ...init, headers: { ...HEADERS, ...(init.headers ?? {}) } })
+    } catch {
+      if (attempt >= 4) throw new ApiError("Can't reach Blanks. Is it still running?")
+      await wait(750)
+    }
   }
+}
+
+async function reopen(docId: string): Promise<boolean> {
+  const file = openFiles.get(docId)
+  if (!file) return false
+  const body = new FormData()
+  body.append('file', file, 'document.pdf')
+  const res = await send('/api/documents', { method: 'POST', body })
+  return res.ok
+}
+
+async function call(path: string, init: RequestInit = {}): Promise<Response> {
+  let res = await send(path, init)
+  const docId = DOC_PATH.exec(path)?.[1]
+  if (res.status === 404 && docId && (await reopen(docId))) res = await send(path, init)
   if (!res.ok) {
     let detail = `Something went wrong (${res.status}).`
     try {
@@ -45,10 +72,12 @@ export const api = {
   status: () => json<Status>('/api/status'),
   ping: () => call('/api/ping'),
 
-  open(file: File) {
+  async open(file: File) {
     const body = new FormData()
     body.append('file', file)
-    return json<OpenDoc>('/api/documents', { method: 'POST', body })
+    const doc = await json<OpenDoc>('/api/documents', { method: 'POST', body })
+    openFiles.set(doc.id, file)
+    return doc
   },
 
   async pageImage(docId: string, index: number, scale: number): Promise<string> {

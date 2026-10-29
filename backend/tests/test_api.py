@@ -130,3 +130,14 @@ def test_chat_endpoint(client, fillable_pdf, monkeypatch):
     r = client.post(f"/api/documents/{doc['id']}/chat", headers=H, json={"messages": [{"role": "user", "text": "my email is a@b.c"}]})
     assert r.status_code == 200
     assert r.json()["values"] == {"email": "a@b.c"}
+
+
+def test_same_pdf_gets_the_same_id(client, fillable_pdf):
+    """A window whose document was forgotten can send it again and keep its id."""
+    from blanks import store
+
+    first = _open(client, fillable_pdf)["id"]
+    store._docs.clear()  # what a server restart does
+    assert client.get(f"/api/documents/{first}/pages/0.png?scale=1", headers=H).status_code == 404
+    assert _open(client, fillable_pdf)["id"] == first
+    assert client.get(f"/api/documents/{first}/pages/0.png?scale=1", headers=H).status_code == 200

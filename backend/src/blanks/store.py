@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import secrets
+import hashlib
 import threading
 from collections import OrderedDict
 from dataclasses import dataclass
@@ -22,9 +22,12 @@ _lock = threading.Lock()
 
 
 def add(name: str, data: bytes) -> Document:
-    doc = Document(id=secrets.token_urlsafe(16), name=name, data=data)
+    # The id comes from the file's contents, so if the server restarts and the
+    # window sends the same PDF again, it gets the same id and nothing is lost.
+    doc = Document(id=hashlib.sha256(data).hexdigest()[:32], name=name, data=data)
     with _lock:
         _docs[doc.id] = doc
+        _docs.move_to_end(doc.id)
         while len(_docs) > MAX_OPEN:
             _docs.popitem(last=False)
     return doc
