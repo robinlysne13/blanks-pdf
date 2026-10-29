@@ -220,7 +220,7 @@ export function SignatureDialog({ request, marks, onClose, onSaved }: Props) {
             className="field"
             value={name}
             maxLength={60}
-            placeholder={`e.g. Alan Lysne (witness)`}
+            placeholder={`e.g. Sam Taylor (witness)`}
             onChange={(e) => setName(e.target.value)}
           />
         </div>
