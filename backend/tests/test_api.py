@@ -52,10 +52,46 @@ def test_unknown_document_is_404(client):
 
 def test_marks_roundtrip(client, png_bytes):
     assert client.get("/api/marks/signature", headers=H).status_code == 404
-    assert client.put("/api/marks/signature", headers=H, content=png_bytes).status_code == 200
+    assert client.put("/api/marks/signature?kind=signature&name=Me", headers=H, content=png_bytes).status_code == 200
     assert client.get("/api/marks/signature", headers=H).content == png_bytes
     assert client.put("/api/marks/signature", headers=H, content=b"not a png").status_code == 400
     assert client.get("/api/status", headers=H).json()["marks"] == {"signature": True, "initials": False}
+
+
+def test_signature_library(client, png_bytes):
+    """Several people's signatures, each with a name; rename and delete."""
+    client.put("/api/marks/me?kind=signature&name=Robin", headers=H, content=png_bytes)
+    client.put("/api/marks/alan-1?kind=signature&name=Alan%20(witness)", headers=H, content=png_bytes)
+    client.put("/api/marks/me-ini?kind=initials&name=", headers=H, content=png_bytes)
+    marks = client.get("/api/marks", headers=H).json()["marks"]
+    assert [(m["id"], m["name"], m["kind"]) for m in marks] == [
+        ("me", "Robin", "signature"),
+        ("alan-1", "Alan (witness)", "signature"),
+        ("me-ini", "My initials", "initials"),
+    ]
+    assert client.patch("/api/marks/alan-1", headers=H, json={"name": "Alan Lysne"}).json()["name"] == "Alan Lysne"
+    assert client.delete("/api/marks/me", headers=H).status_code == 200
+    assert [m["id"] for m in client.get("/api/marks", headers=H).json()["marks"]] == ["alan-1", "me-ini"]
+    assert client.get("/api/marks/..%2Fprofile", headers=H).status_code == 404
+    assert client.put("/api/marks/x?kind=stamp", headers=H, content=png_bytes).status_code == 400
+
+
+def test_old_signature_files_move_into_the_library(client, png_bytes, blanks_home):
+    config.home()
+    (blanks_home / "signature.png").write_bytes(png_bytes)
+    marks = client.get("/api/marks", headers=H).json()["marks"]
+    assert marks == [{"id": "signature", "name": "My signature", "kind": "signature"}]
+    assert not (blanks_home / "signature.png").exists()
+
+
+def test_export_uses_any_library_signature(client, fillable_pdf, png_bytes):
+    import pymupdf
+
+    client.put("/api/marks/alan-1?kind=signature&name=Alan", headers=H, content=png_bytes)
+    doc = _open(client, fillable_pdf)
+    ov = [{"kind": "image", "page": 0, "x": 50, "y": 400, "w": 80, "h": 40, "image": "alan-1"}]
+    out = client.post(f"/api/documents/{doc['id']}/export", headers=H, json={"values": {}, "overlays": ov}).content
+    assert len(pymupdf.open(stream=out)[0].get_images()) == 1
 
 
 def test_settings_ignore_unknown_keys(client):
@@ -141,3 +177,13 @@ def test_same_pdf_gets_the_same_id(client, fillable_pdf):
     assert client.get(f"/api/documents/{first}/pages/0.png?scale=1", headers=H).status_code == 404
     assert _open(client, fillable_pdf)["id"] == first
     assert client.get(f"/api/documents/{first}/pages/0.png?scale=1", headers=H).status_code == 200
+
+
+def test_library_survives_parallel_requests(png_bytes, blanks_home):
+    from concurrent.futures import ThreadPoolExecutor
+
+    config.home()
+    (blanks_home / "signature.png").write_bytes(png_bytes)
+    with ThreadPoolExecutor(8) as pool:
+        results = list(pool.map(lambda _: config.list_marks(), range(16)))
+    assert all(r == [{"id": "signature", "name": "My signature", "kind": "signature"}] for r in results)

@@ -9,10 +9,11 @@ from __future__ import annotations
 import json
 import os
 import re
+import threading
 from pathlib import Path
 from typing import Any
 
-MARKS = ("signature", "initials")
+MARK_KINDS = ("signature", "initials")
 
 DEFAULT_SETTINGS: dict[str, Any] = {
     "date_format": "long",  # long | iso | dmy | mdy
@@ -132,10 +133,115 @@ def save_profile_rows(rows: list[dict[str, Any]]) -> list[dict[str, str]]:
     return profile_rows(path.read_text())
 
 
-def mark_path(kind: str) -> Path:
-    if kind not in MARKS:
-        raise ValueError(kind)
-    return home() / f"{kind}.png"
+# ----------------------------------------------------- signature library
+#
+# Signatures and initials live in ~/.blanks/marks/<id>.png, with their names
+# in ~/.blanks/marks.json. Several people's signatures can be kept, such as
+# your own and a witness's.
+
+_MARK_ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,47}$")
+LEGACY_NAMES = {"signature": "My signature", "initials": "My initials"}
+_marks_lock = threading.RLock()  # requests run in parallel; the index is one file
+
+
+def _marks_dir() -> Path:
+    path = home() / "marks"
+    path.mkdir(exist_ok=True)
+    return path
+
+
+def _index_path() -> Path:
+    return home() / "marks.json"
+
+
+def _read_index() -> list[dict[str, str]]:
+    try:
+        data = json.loads(_index_path().read_text())
+        return [m for m in data if isinstance(m, dict) and _MARK_ID.match(str(m.get("id", "")))]
+    except (FileNotFoundError, json.JSONDecodeError, TypeError):
+        return []
+
+
+def _write_index(marks: list[dict[str, str]]) -> None:
+    tmp = _index_path().with_suffix(".tmp")
+    tmp.write_text(json.dumps(marks, indent=2))
+    tmp.replace(_index_path())
+
+
+def mark_file(mark_id: str) -> Path:
+    if not _MARK_ID.match(mark_id):
+        raise ValueError("bad mark id")
+    return _marks_dir() / f"{mark_id}.png"
+
+
+def list_marks() -> list[dict[str, str]]:
+    """Every saved signature and set of initials, oldest first."""
+    with _marks_lock:
+        return _list_marks()
+
+
+def _list_marks() -> list[dict[str, str]]:
+    marks = _read_index()
+    known = {m["id"] for m in marks}
+    # Blanks used to keep one of each at ~/.blanks/signature.png and initials.png.
+    for kind, name in LEGACY_NAMES.items():
+        old = home() / f"{kind}.png"
+        if old.exists() and kind not in known:
+            old.replace(mark_file(kind))
+            marks.append({"id": kind, "name": name, "kind": kind})
+            _write_index(marks)
+    return [m for m in marks if mark_file(m["id"]).exists()]
+
+
+def _clean_name(name: str, kind: str) -> str:
+    name = re.sub(r"\s+", " ", str(name)).strip()[:60]
+    return name or LEGACY_NAMES.get(kind, "Signature")
+
+
+def save_mark(mark_id: str, name: str, kind: str, png: bytes) -> dict[str, str]:
+    with _marks_lock:
+        return _save_mark(mark_id, name, kind, png)
+
+
+def _save_mark(mark_id: str, name: str, kind: str, png: bytes) -> dict[str, str]:
+    if kind not in MARK_KINDS:
+        raise ValueError("kind must be signature or initials")
+    path = mark_file(mark_id)
+    marks = _list_marks()
+    entry = {"id": mark_id, "name": _clean_name(name, kind), "kind": kind}
+    if any(m["id"] == mark_id for m in marks):
+        marks = [entry if m["id"] == mark_id else m for m in marks]  # redrawn: keep its place
+    else:
+        marks.append(entry)
+    path.write_bytes(png)
+    _write_index(marks)
+    return entry
+
+
+def rename_mark(mark_id: str, name: str) -> dict[str, str]:
+    with _marks_lock:
+        return _rename_mark(mark_id, name)
+
+
+def _rename_mark(mark_id: str, name: str) -> dict[str, str]:
+    marks = _list_marks()
+    for m in marks:
+        if m["id"] == mark_id:
+            m["name"] = _clean_name(name, m["kind"])
+            _write_index(marks)
+            return m
+    raise KeyError(mark_id)
+
+
+def delete_mark(mark_id: str) -> None:
+    with _marks_lock:
+        _delete_mark(mark_id)
+
+
+def _delete_mark(mark_id: str) -> None:
+    marks = [m for m in _list_marks() if m["id"] != mark_id]
+    mark_file(mark_id).unlink(missing_ok=True)
+    _write_index(marks)
 
 
 def read_settings() -> dict[str, Any]:

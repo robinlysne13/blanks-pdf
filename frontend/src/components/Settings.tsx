@@ -2,21 +2,23 @@ import { api } from '../api'
 import { DATE_FORMATS, formatDate } from '../dates'
 import type { Mark, MarkKind, Settings as SettingsT, Status } from '../types'
 import { ProfileCard } from './ProfileCard'
+import { SignatureLibrary } from './SignatureLibrary'
 import { Sidebar } from './Sidebar'
 
 interface Props {
   status: Status | null
-  marks: Record<MarkKind, Mark | null>
+  marks: Mark[]
   hasDoc: boolean
   onBack: () => void
   onOpenPdf: () => void
-  onDrawMark: (kind: MarkKind) => void
+  onDrawMark: (kind: MarkKind, mark?: Mark) => void
+  onMarksChange: () => Promise<void>
   onSettingsChange: (s: SettingsT) => void
   onRefresh: () => Promise<void>
   onToast: (m: string) => void
 }
 
-export function Settings({ status, marks, hasDoc, onBack, onOpenPdf, onDrawMark, onSettingsChange, onRefresh, onToast }: Props) {
+export function Settings({ status, marks, hasDoc, onBack, onOpenPdf, onDrawMark, onMarksChange, onSettingsChange, onRefresh, onToast }: Props) {
   const settings = status?.settings
 
   const save = async (patch: Partial<SettingsT>) => {
@@ -30,7 +32,7 @@ export function Settings({ status, marks, hasDoc, onBack, onOpenPdf, onDrawMark,
   const sections = [
     ['profile', 'Profile'],
     ['claude', 'Claude'],
-    ['marks', 'Signature and initials'],
+    ['marks', 'Signatures'],
     ['defaults', 'Defaults'],
   ]
 
@@ -82,21 +84,7 @@ export function Settings({ status, marks, hasDoc, onBack, onOpenPdf, onDrawMark,
             </div>
           </section>
 
-          <section id="marks" className="card glass">
-            <h2>Signature and initials</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
-              {(['signature', 'initials'] as const).map((k) => (
-                <div key={k} className="mark-tile">
-                  <span className="cap">{k}</span>
-                  {marks[k] ? <img src={marks[k]!.url} alt={`Your saved ${k}`} /> : <span className="muted" style={{ height: 44, display: 'flex', alignItems: 'center' }}>Not drawn yet</span>}
-                  <button type="button" className="link-btn" style={{ alignSelf: 'flex-start' }} onClick={() => onDrawMark(k)}>
-                    {marks[k] ? 'Redraw' : 'Draw'}
-                  </button>
-                </div>
-              ))}
-            </div>
-            <p className="muted">Stored as transparent images in your Blanks folder.</p>
-          </section>
+          <SignatureLibrary marks={marks} onDraw={onDrawMark} onChanged={onMarksChange} onToast={onToast} />
 
           <section id="defaults" className="card glass">
             <h2>Defaults</h2>

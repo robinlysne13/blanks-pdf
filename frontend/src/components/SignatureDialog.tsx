@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../api'
+import { uid } from '../model'
 import type { Mark, MarkKind } from '../types'
 
 const INKS = [
@@ -8,21 +9,40 @@ const INKS = [
 ]
 const RES = 3 // canvas pixels per CSS pixel, so the saved image stays sharp when scaled
 const PEN = 2.6
+const MINE: Record<MarkKind, string> = { signature: 'My signature', initials: 'My initials' }
 
-interface Props {
-  initialTab: MarkKind
-  marks: Record<MarkKind, Mark | null>
-  onClose: () => void
-  onSaved: (kind: MarkKind) => Promise<void>
+export interface DrawRequest {
+  kind: MarkKind
+  /** Set when redrawing a saved one; otherwise a new one is added. */
+  mark?: Mark
 }
 
-export function SignatureDialog({ initialTab, marks, onClose, onSaved }: Props) {
-  const [tab, setTab] = useState<MarkKind>(initialTab)
+interface Props {
+  request: DrawRequest
+  marks: Mark[]
+  onClose: () => void
+  onSaved: (mark: { id: string; kind: MarkKind }) => Promise<void>
+}
+
+const slug = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 30)
+
+/** Draw a signature or initials, give it a name, and add it to the library. */
+export function SignatureDialog({ request, marks, onClose, onSaved }: Props) {
+  const [kind, setKind] = useState<MarkKind>(request.kind)
+  const [editing, setEditing] = useState<Mark | undefined>(request.mark)
+  const firstOf = (k: MarkKind) => !marks.some((m) => m.kind === k)
+  const [name, setName] = useState(request.mark?.name ?? (firstOf(request.kind) ? MINE[request.kind] : ''))
   const [ink, setInk] = useState(INKS[0].color)
   const [empty, setEmpty] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const nameRef = useRef<HTMLInputElement>(null)
   const drawing = useRef<{ last: [number, number]; mid: [number, number] } | null>(null)
   const bbox = useRef<[number, number, number, number] | null>(null)
 
@@ -57,6 +77,13 @@ export function SignatureDialog({ initialTab, marks, onClose, onSaved }: Props) 
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
+  // Adding someone else's: ask for the name first.
+  useEffect(() => {
+    if (!name) nameRef.current?.focus()
+    // Only when the dialog opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const point = (e: React.PointerEvent): [number, number] => {
     const r = canvasRef.current!.getBoundingClientRect()
     return [(e.clientX - r.left) * RES, (e.clientY - r.top) * RES]
@@ -65,6 +92,13 @@ export function SignatureDialog({ initialTab, marks, onClose, onSaved }: Props) 
   const grow = ([x, y]: [number, number]) => {
     const b = bbox.current
     bbox.current = b ? [Math.min(b[0], x), Math.min(b[1], y), Math.max(b[2], x), Math.max(b[3], y)] : [x, y, x, y]
+  }
+
+  const stroke = (ctx: CanvasRenderingContext2D) => {
+    ctx.strokeStyle = ink
+    ctx.lineWidth = PEN * RES
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
   }
 
   const down = (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -86,10 +120,7 @@ export function SignatureDialog({ initialTab, marks, onClose, onSaved }: Props) 
     const p = point(e)
     const mid: [number, number] = [(d.last[0] + p[0]) / 2, (d.last[1] + p[1]) / 2]
     const ctx = e.currentTarget.getContext('2d')!
-    ctx.strokeStyle = ink
-    ctx.lineWidth = PEN * RES
-    ctx.lineCap = 'round'
-    ctx.lineJoin = 'round'
+    stroke(ctx)
     ctx.beginPath()
     ctx.moveTo(d.mid[0], d.mid[1])
     ctx.quadraticCurveTo(d.last[0], d.last[1], mid[0], mid[1])
@@ -104,9 +135,7 @@ export function SignatureDialog({ initialTab, marks, onClose, onSaved }: Props) 
     const c = canvasRef.current
     if (d && c) {
       const ctx = c.getContext('2d')!
-      ctx.strokeStyle = ink
-      ctx.lineWidth = PEN * RES
-      ctx.lineCap = 'round'
+      stroke(ctx)
       ctx.beginPath()
       ctx.moveTo(d.mid[0], d.mid[1])
       ctx.lineTo(d.last[0], d.last[1])
@@ -133,10 +162,14 @@ export function SignatureDialog({ initialTab, marks, onClose, onSaved }: Props) 
     setSaving(true)
     setError('')
     try {
-      await api.saveMark(tab, blob)
-      await onSaved(tab)
-      if (tab === 'signature' && !marks.initials) {
-        setTab('initials')
+      const id = editing?.id ?? `${slug(name) || kind}-${uid()}`
+      await api.saveMark(id, name.trim() || MINE[kind], kind, blob)
+      await onSaved({ id, kind })
+      // Someone's very first signature: offer their initials next.
+      if (!editing && kind === 'signature' && name.trim() === MINE.signature && firstOf('initials')) {
+        setKind('initials')
+        setName(MINE.initials)
+        setEditing(undefined)
         clear()
       } else {
         onClose()
@@ -148,27 +181,48 @@ export function SignatureDialog({ initialTab, marks, onClose, onSaved }: Props) 
     }
   }
 
-  const switchTab = (t: MarkKind) => {
-    setTab(t)
+  const switchKind = (k: MarkKind) => {
+    setKind(k)
+    if (!name || name === MINE[kind]) setName(firstOf(k) ? MINE[k] : '')
     clear()
   }
+
+  const word = kind === 'signature' ? 'signature' : 'initials'
+  const title = editing ? `Redraw ${editing.name}` : kind === 'signature' ? 'Add a signature' : 'Add initials'
 
   return (
     <div className="scrim" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
       <section className="dialog wide" role="dialog" aria-modal="true" aria-labelledby="sig-title">
         <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 12 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <h2 id="sig-title">Draw it once</h2>
-            <p>Blanks reuses it on every form. It is saved on this computer only.</p>
+            <h2 id="sig-title">{title}</h2>
+            <p>Draw it once. It's saved on this computer and can go on any form.</p>
           </div>
-          <div className="tabs" role="tablist" aria-label="Mark">
-            <button type="button" role="tab" aria-selected={tab === 'signature'} onClick={() => switchTab('signature')}>
-              Signature
-            </button>
-            <button type="button" role="tab" aria-selected={tab === 'initials'} onClick={() => switchTab('initials')}>
-              Initials
-            </button>
-          </div>
+          {!editing && (
+            <div className="tabs" role="tablist" aria-label="Kind">
+              <button type="button" role="tab" aria-selected={kind === 'signature'} onClick={() => switchKind('signature')}>
+                Signature
+              </button>
+              <button type="button" role="tab" aria-selected={kind === 'initials'} onClick={() => switchKind('initials')}>
+                Initials
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <label htmlFor="sig-name" className="muted">
+            Whose {word}?
+          </label>
+          <input
+            id="sig-name"
+            ref={nameRef}
+            className="field"
+            value={name}
+            maxLength={60}
+            placeholder={`e.g. Alan Lysne (witness)`}
+            onChange={(e) => setName(e.target.value)}
+          />
         </div>
 
         <div className="pad">
@@ -179,7 +233,7 @@ export function SignatureDialog({ initialTab, marks, onClose, onSaved }: Props) 
           {empty && <span className="hint">Draw with your mouse or trackpad</span>}
           <canvas
             ref={canvasRef}
-            aria-label={`Drawing area for your ${tab}`}
+            aria-label={`Drawing area for the ${word}`}
             onPointerDown={down}
             onPointerMove={move}
             onPointerUp={up}
@@ -211,24 +265,13 @@ export function SignatureDialog({ initialTab, marks, onClose, onSaved }: Props) 
 
         {error && <p style={{ color: 'var(--warn-ink)' }}>{error}</p>}
 
-        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 10, borderTop: '1px solid var(--line)', paddingTop: 18 }}>
-          <span className="muted">
-            {tab === 'signature'
-              ? marks.initials
-                ? 'Your initials are already saved.'
-                : 'Next: initials, also drawn once.'
-              : marks.initials
-                ? 'This replaces your saved initials.'
-                : 'Used wherever a form says "initial here".'}
-          </span>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <button className="pill pill-glass" type="button" onClick={onClose}>
-              Cancel
-            </button>
-            <button className="pill pill-red" type="button" onClick={save} disabled={empty || saving}>
-              {saving ? 'Saving…' : tab === 'signature' ? 'Save signature' : 'Save initials'}
-            </button>
-          </div>
+        <div className="dialog-actions" style={{ borderTop: '1px solid var(--line)', paddingTop: 18 }}>
+          <button className="pill pill-glass" type="button" onClick={onClose}>
+            Cancel
+          </button>
+          <button className="pill pill-red" type="button" onClick={save} disabled={empty || saving || !name.trim()}>
+            {saving ? 'Saving…' : editing ? 'Save' : `Save ${word}`}
+          </button>
         </div>
       </section>
     </div>

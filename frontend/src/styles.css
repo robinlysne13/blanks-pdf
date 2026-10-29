@@ -95,6 +95,14 @@ a:hover { color: #7a1a12; }
 .link-btn { background: none; border: none; padding: 0; color: var(--red-deep); cursor: pointer; font-size: 13px; }
 .link-btn:hover { text-decoration: underline; }
 
+/* signature library in the sidebar */
+.library { border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 6px; max-height: 320px; overflow-y: auto; }
+.library-item { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; padding: 6px 8px; border: none; border-radius: 10px; background: transparent; cursor: pointer; text-align: left; }
+.library-item:hover { background: rgba(255, 255, 255, 0.7); }
+.library-item[aria-pressed='true'] { background: var(--red-tint); box-shadow: inset 0 0 0 1.5px var(--red); }
+.library-item img { height: 30px; max-width: 100%; object-fit: contain; object-position: left; }
+.library-name { font-size: 12px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+
 /* ---- editor ---- */
 .topbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 8px 8px 8px 18px; border-radius: 30px; }
 .topbar .name { font-size: 15px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 320px; }
@@ -226,6 +234,10 @@ kbd { font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 2px 7p
 .kv { display: flex; justify-content: space-between; gap: 12px; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 6px 0; border-bottom: 1px solid rgba(17, 24, 39, 0.06); }
 .kv span:first-child { color: var(--muted); }
 .mark-tile { border-radius: 14px; background: #fff; padding: 14px; display: flex; flex-direction: column; gap: 8px; box-shadow: inset 0 0 0 1px rgba(17, 24, 39, 0.06); min-height: 120px; }
+.lib-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.lib-name-input { height: 34px; border: none; border-radius: 8px; padding: 0 8px; margin: 0 -8px; font-size: 14px; background: transparent; color: var(--ink); min-width: 0; }
+.lib-name-input:hover { background: #f4f6f9; }
+.lib-name-input:focus { outline: none; background: #fff; box-shadow: inset 0 0 0 2px var(--red); }
 .mark-tile img { max-width: 100%; height: 44px; object-fit: contain; object-position: left; }
 .ok-box { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 14px; font-size: 14px; }
 .switch { position: relative; width: 38px; height: 22px; border-radius: 11px; border: none; background: rgba(17, 24, 39, 0.18); cursor: pointer; padding: 0; flex-shrink: 0; }

@@ -11,7 +11,7 @@ const SAMPLES = [
 
 interface Props {
   status: Status | null
-  marks: Record<MarkKind, Mark | null>
+  marks: Mark[]
   busy: boolean
   onFile: (file: File) => void
   onChoose: () => void
@@ -22,6 +22,8 @@ interface Props {
 export function StartScreen({ status, marks, busy, onFile, onChoose, onSettings, onDrawMark }: Props) {
   const [over, setOver] = useState(false)
   const claudeReady = status?.claude.available ?? false
+  const count = (k: MarkKind) => marks.filter((m) => m.kind === k).length
+  const mySignature = marks.find((m) => m.kind === 'signature')
 
   const openSample = async (file: string) => {
     const res = await fetch(`/samples/${file}`)
@@ -33,15 +35,15 @@ export function StartScreen({ status, marks, busy, onFile, onChoose, onSettings,
       <Sidebar onOpenPdf={onChoose} onSettings={onSettings}>
         <nav className="nav-list" aria-label="Setup">
           <div className="cap">Setup</div>
-          <button className="nav" type="button" onClick={() => onDrawMark('signature')}>
+          <button className="nav" type="button" onClick={() => (count('signature') ? onSettings() : onDrawMark('signature'))}>
             <Icon.signature />
             <span className="grow">Signature</span>
-            <span className="hint">{marks.signature ? 'Saved' : 'Draw it'}</span>
+            <span className="hint">{count('signature') ? `${count('signature')} saved` : 'Draw it'}</span>
           </button>
-          <button className="nav" type="button" onClick={() => onDrawMark('initials')}>
+          <button className="nav" type="button" onClick={() => (count('initials') ? onSettings() : onDrawMark('initials'))}>
             <Icon.initials />
             <span className="grow">Initials</span>
-            <span className="hint">{marks.initials ? 'Saved' : 'Draw them'}</span>
+            <span className="hint">{count('initials') ? `${count('initials')} saved` : 'Draw them'}</span>
           </button>
           <button className="nav" type="button" onClick={onSettings}>
             <Icon.person />
@@ -103,9 +105,9 @@ export function StartScreen({ status, marks, busy, onFile, onChoose, onSettings,
 
         <div className="status-chips">
           <button type="button" className="glass" onClick={() => onDrawMark('signature')}>
-            {marks.signature ? (
+            {mySignature ? (
               <>
-                <img src={marks.signature.url} alt="Your saved signature" style={{ height: 20 }} />
+                <img src={mySignature.url} alt={mySignature.name} style={{ height: 20 }} />
                 Signature ready
               </>
             ) : (

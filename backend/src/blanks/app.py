@@ -65,7 +65,7 @@ def status() -> dict[str, Any]:
     return {
         "profile": {"path": str(config.profile_path()), "exists": text is not None, "count": len(config.profile_entries(text))},
         "claude": {"available": autofill.claude_bin() is not None},
-        "marks": {k: config.mark_path(k).exists() for k in config.MARKS},
+        "marks": {k: any(m["kind"] == k for m in config.list_marks()) for k in config.MARK_KINDS},
         "settings": config.read_settings(),
     }
 
@@ -109,11 +109,7 @@ class ExportBody(BaseModel):
 @app.post("/api/documents/{doc_id}/export")
 async def export(doc_id: str, body: ExportBody) -> Response:
     doc = _doc(doc_id)
-    images = {}
-    for kind in config.MARKS:
-        path = config.mark_path(kind)
-        if path.exists():
-            images[kind] = path.read_bytes()
+    images = {m["id"]: config.mark_file(m["id"]).read_bytes() for m in config.list_marks()}
     try:
         out = await run_in_threadpool(pdf.export, doc.data, body.values, body.overlays, images)
     except (KeyError, ValueError, TypeError) as e:
@@ -165,24 +161,55 @@ async def run_chat(doc_id: str, body: ChatBody) -> dict[str, Any]:
 # ------------------------------------------------------------------- marks
 
 
-@app.get("/api/marks/{kind}")
-def get_mark(kind: str) -> Response:
-    if kind not in config.MARKS:
-        raise HTTPException(404)
-    path = config.mark_path(kind)
+@app.get("/api/marks")
+def list_marks() -> dict[str, Any]:
+    return {"marks": config.list_marks()}
+
+
+def _mark_path(mark_id: str) -> Path:
+    try:
+        return config.mark_file(mark_id)
+    except ValueError as e:
+        raise HTTPException(404) from e
+
+
+@app.get("/api/marks/{mark_id}")
+def get_mark(mark_id: str) -> Response:
+    path = _mark_path(mark_id)
     if not path.exists():
-        raise HTTPException(404, f"No {kind} saved yet.")
+        raise HTTPException(404, "That signature isn't saved.")
     return FileResponse(path, media_type="image/png", headers={"Cache-Control": "no-store"})
 
 
-@app.put("/api/marks/{kind}")
-async def put_mark(kind: str, request: Request) -> dict[str, bool]:
-    if kind not in config.MARKS:
-        raise HTTPException(404)
+@app.put("/api/marks/{mark_id}")
+async def put_mark(mark_id: str, request: Request, name: str = "", kind: str = "signature") -> dict[str, str]:
+    _mark_path(mark_id)
     data = await request.body()
     if len(data) > MAX_MARK_BYTES or not data.startswith(b"\x89PNG"):
         raise HTTPException(400, "Send a PNG under 2 MB.")
-    config.mark_path(kind).write_bytes(data)
+    try:
+        return config.save_mark(mark_id, name, kind, data)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+
+
+class MarkPatch(BaseModel):
+    name: str
+
+
+@app.patch("/api/marks/{mark_id}")
+def rename_mark(mark_id: str, body: MarkPatch) -> dict[str, str]:
+    _mark_path(mark_id)
+    try:
+        return config.rename_mark(mark_id, body.name)
+    except KeyError as e:
+        raise HTTPException(404, "That signature isn't saved.") from e
+
+
+@app.delete("/api/marks/{mark_id}")
+def delete_mark(mark_id: str) -> dict[str, bool]:
+    _mark_path(mark_id)
+    config.delete_mark(mark_id)
     return {"ok": True}
 
 

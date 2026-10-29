@@ -2,28 +2,39 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from './api'
 import { Editor } from './components/Editor'
 import { Settings } from './components/Settings'
-import { SignatureDialog } from './components/SignatureDialog'
+import { SignatureDialog, type DrawRequest } from './components/SignatureDialog'
 import { StartScreen } from './components/StartScreen'
 import type { Mark, MarkKind, OpenDoc, Status } from './types'
 
 type View = 'start' | 'editor' | 'settings'
 
-async function loadMark(kind: MarkKind): Promise<Mark | null> {
-  const blob = await api.mark(kind)
-  if (!blob) return null
-  const url = URL.createObjectURL(blob)
-  const img = new Image()
-  img.src = url
-  await img.decode().catch(() => {})
-  return { url, aspect: img.naturalWidth && img.naturalHeight ? img.naturalWidth / img.naturalHeight : 3 }
+async function loadMarks(): Promise<Mark[]> {
+  const { marks } = await api.marks()
+  const loaded = await Promise.all(
+    marks.map(async (m): Promise<Mark | null> => {
+      const blob = await api.markImage(m.id)
+      if (!blob) return null
+      const url = URL.createObjectURL(blob)
+      // Wait for the size with onload: decode() can stall while the window is hidden.
+      const img = new Image()
+      await new Promise<void>((done) => {
+        img.onload = img.onerror = () => done()
+        setTimeout(done, 3000)
+        img.src = url
+      })
+      const aspect = img.naturalWidth && img.naturalHeight ? img.naturalWidth / img.naturalHeight : m.kind === 'signature' ? 3 : 1.5
+      return { ...m, url, aspect }
+    }),
+  )
+  return loaded.filter((m): m is Mark => m !== null)
 }
 
 export default function App() {
   const [view, setView] = useState<View>('start')
   const [status, setStatus] = useState<Status | null>(null)
-  const [marks, setMarks] = useState<Record<MarkKind, Mark | null>>({ signature: null, initials: null })
+  const [marks, setMarks] = useState<Mark[]>([])
   const [doc, setDoc] = useState<OpenDoc | null>(null)
-  const [drawing, setDrawing] = useState<MarkKind | null>(null)
+  const [drawing, setDrawing] = useState<DrawRequest | null>(null)
   const [opening, setOpening] = useState(false)
   const [toast, setToast] = useState('')
   const dirty = useRef(false)
@@ -44,19 +55,24 @@ export default function App() {
     }
   }, [showToast])
 
-  const refreshMark = useCallback(async (kind: MarkKind) => {
-    const mark = await loadMark(kind)
-    setMarks((m) => {
-      if (m[kind]) URL.revokeObjectURL(m[kind]!.url)
-      return { ...m, [kind]: mark }
-    })
-  }, [])
+  const refreshMarks = useCallback(async () => {
+    try {
+      const next = await loadMarks()
+      setMarks((old) => {
+        old.forEach((m) => URL.revokeObjectURL(m.url))
+        return next
+      })
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : String(e))
+    }
+  }, [showToast])
 
   useEffect(() => {
     void refresh()
-    void refreshMark('signature')
-    void refreshMark('initials')
-  }, [refresh, refreshMark])
+    void refreshMarks()
+  }, [refresh, refreshMarks])
+
+  const drawMark = useCallback((kind: MarkKind, mark?: Mark) => setDrawing({ kind, mark }), [])
 
   // Tell the server a window is still open, so a server started from the
   // Dock can stop itself once every window is closed.
@@ -146,7 +162,7 @@ export default function App() {
           onFile={openFile}
           onChoose={chooseFile}
           onSettings={() => setView('settings')}
-          onDrawMark={setDrawing}
+          onDrawMark={drawMark}
         />
       )}
 
@@ -161,7 +177,7 @@ export default function App() {
           modalOpen={drawing !== null}
           onOpenPdf={chooseFile}
           onSettings={() => setView('settings')}
-          onDrawMark={setDrawing}
+          onDrawMark={drawMark}
           onToast={showToast}
           onDirty={onDirty}
         />
@@ -174,7 +190,8 @@ export default function App() {
           hasDoc={doc !== null}
           onBack={() => setView(doc ? 'editor' : 'start')}
           onOpenPdf={chooseFile}
-          onDrawMark={setDrawing}
+          onDrawMark={drawMark}
+          onMarksChange={refreshMarks}
           onSettingsChange={(settings) => setStatus((s) => (s ? { ...s, settings } : s))}
           onRefresh={refresh}
           onToast={showToast}
@@ -183,11 +200,11 @@ export default function App() {
 
       {drawing && (
         <SignatureDialog
-          initialTab={drawing}
+          request={drawing}
           marks={marks}
           onClose={() => setDrawing(null)}
-          onSaved={async (kind) => {
-            await refreshMark(kind)
+          onSaved={async () => {
+            await refreshMarks()
             void refresh()
           }}
         />

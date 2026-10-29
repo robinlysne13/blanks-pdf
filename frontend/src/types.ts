@@ -51,7 +51,8 @@ export interface Overlay {
   h: number
   text?: string
   fontSize?: number
-  image?: MarkKind
+  /** For a signature or initials: the id of the saved one in the library. */
+  image?: string
   source: Source
   /** What it is, for the side panel: "Signature", "Date", a matched label… */
   label: string
@@ -80,7 +81,15 @@ export type AutofillResult =
       placements: { page: number; x: number; y: number; text: string; label: string; fontSize: number }[]
     }
 
-export interface Mark {
+/** A saved signature or set of initials, as the server lists it. */
+export interface MarkInfo {
+  id: string
+  name: string
+  kind: MarkKind
+}
+
+/** A saved one, loaded and ready to draw. */
+export interface Mark extends MarkInfo {
   url: string
   /** width / height of the saved image */
   aspect: number

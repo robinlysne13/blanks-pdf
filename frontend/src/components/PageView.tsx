@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef } from 'react'
 import { Icon } from '../icons'
 import type { FieldGroup } from '../model'
-import type { FieldValue, Mark, MarkKind, Overlay, PageInfo, PdfField, Tool } from '../types'
+import type { FieldValue, Mark, Overlay, PageInfo, PdfField, Tool } from '../types'
 
 interface Props {
   page: PageInfo
@@ -12,7 +12,7 @@ interface Props {
   groups: Map<string, FieldGroup>
   values: Record<string, FieldValue>
   overlays: Overlay[]
-  marks: Record<MarkKind, Mark | null>
+  marks: Mark[]
   selected: string | null
   editing: string | null
   onPlace: (x: number, y: number) => void
@@ -251,8 +251,8 @@ function OverlayView(props: Props & { o: Overlay; isSelected: boolean; isEditing
       </div>
     )
   } else if (o.kind === 'image') {
-    const mark = o.image ? marks[o.image] : null
-    body = mark ? <img src={mark.url} alt={o.image === 'initials' ? 'Your initials' : 'Your signature'} draggable={false} /> : null
+    const mark = marks.find((m) => m.id === o.image)
+    body = mark ? <img src={mark.url} alt={mark.name} draggable={false} /> : null
   } else {
     body = o.kind === 'check' ? <Icon.check strokeWidth={2.6} /> : <Icon.cross strokeWidth={2.6} />
   }

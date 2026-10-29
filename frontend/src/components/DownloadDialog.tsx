@@ -29,11 +29,11 @@ export function DownloadDialog({ doc, values, overlays, onClose, onShowClaude, o
   }, [onClose])
 
   const filled = Object.values(values).filter(isFilled).length
+  const signers = [...new Set(overlays.filter((o) => o.kind === 'image').map((o) => o.label))]
   const count = (pred: (o: Overlay) => boolean) => overlays.filter(pred).length
   const lines = [
     filled && plural(filled, 'form field') + ' filled',
-    count((o) => o.image === 'signature') && plural(count((o) => o.image === 'signature'), 'signature'),
-    count((o) => o.image === 'initials') && plural(count((o) => o.image === 'initials'), 'set of initials', 'sets of initials'),
+    signers.length > 0 && `Signed: ${signers.join(', ')}`,
     count((o) => o.kind === 'text') && plural(count((o) => o.kind === 'text'), 'text box', 'text boxes'),
     count((o) => o.kind === 'check' || o.kind === 'cross') && plural(count((o) => o.kind === 'check' || o.kind === 'cross'), 'mark'),
   ].filter(Boolean) as string[]

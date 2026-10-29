@@ -52,7 +52,7 @@ export function exportPayload(values: Record<string, FieldValue>, overlays: Over
 }
 
 export function overlayName(o: Overlay): string {
-  if (o.kind === 'image') return o.image === 'initials' ? 'Initials' : 'Signature'
+  if (o.kind === 'image') return o.label || 'Signature'
   if (o.kind === 'check') return 'Checkmark'
   if (o.kind === 'cross') return 'Cross'
   if (o.label && o.label !== 'Text') return o.label

@@ -1,4 +1,4 @@
-import type { AutofillResult, ChatResult, MarkKind, OpenDoc, Settings, Status } from './types'
+import type { AutofillResult, ChatResult, MarkInfo, MarkKind, OpenDoc, Settings, Status } from './types'
 
 // Every API call carries this header. The server refuses calls without it,
 // which keeps other websites from talking to Blanks on localhost.
@@ -103,15 +103,27 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
-  async mark(kind: MarkKind): Promise<Blob | null> {
+  marks: () => json<{ marks: MarkInfo[] }>('/api/marks'),
+
+  async markImage(id: string): Promise<Blob | null> {
     try {
-      return await (await call(`/api/marks/${kind}`)).blob()
+      return await (await call(`/api/marks/${id}`)).blob()
     } catch {
       return null
     }
   },
 
-  saveMark: (kind: MarkKind, png: Blob) => json(`/api/marks/${kind}`, { method: 'PUT', body: png }),
+  saveMark: (id: string, name: string, kind: MarkKind, png: Blob) =>
+    json<MarkInfo>(`/api/marks/${id}?name=${encodeURIComponent(name)}&kind=${kind}`, { method: 'PUT', body: png }),
+
+  renameMark: (id: string, name: string) =>
+    json<MarkInfo>(`/api/marks/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    }),
+
+  deleteMark: (id: string) => json(`/api/marks/${id}`, { method: 'DELETE' }),
 
   profile: () => json<ProfilePayload>('/api/profile'),
   saveProfile: (rows: (ProfileRow & { was?: string })[]) =>

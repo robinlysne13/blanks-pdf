@@ -31,13 +31,13 @@ type AutoState =
 interface Props {
   doc: OpenDoc
   status: Status | null
-  marks: Record<MarkKind, Mark | null>
+  marks: Mark[]
   dateFormat: DateFormat
   hidden: boolean
   modalOpen: boolean
   onOpenPdf: () => void
   onSettings: () => void
-  onDrawMark: (kind: MarkKind) => void
+  onDrawMark: (kind: MarkKind, mark?: Mark) => void
   onToast: (message: string) => void
   onDirty: (dirty: boolean) => void
 }
@@ -50,6 +50,8 @@ export function Editor({ doc, status, marks, dateFormat, hidden, modalOpen, onOp
   const [selected, setSelected] = useState<string | null>(null)
   const [editing, setEditing] = useState<string | null>(null)
   const [tool, setTool] = useState<Tool>('select')
+  // Which saved signature and initials the Signature and Initials tools place.
+  const [chosen, setChosen] = useState<Record<MarkKind, string | null>>({ signature: null, initials: null })
   const [pageIndex, setPageIndex] = useState(0)
   const [auto, setAuto] = useState<AutoState>({ state: 'idle' })
   const [missing, setMissing] = useState<Set<string>>(new Set())
@@ -147,8 +149,25 @@ export function Editor({ doc, status, marks, dateFormat, hidden, modalOpen, onOp
     })
   }, [])
 
+  const markFor = (kind: MarkKind): Mark | undefined =>
+    marks.find((m) => m.id === chosen[kind] && m.kind === kind) ?? marks.find((m) => m.kind === kind)
+
+  /** Pick a tool. With no signature or initials saved yet, draw one first. */
+  const pickTool = (t: Tool) => {
+    if ((t === 'signature' || t === 'initials') && !markFor(t)) {
+      onDrawMark(t)
+      return
+    }
+    setTool(t)
+  }
+
+  const chooseMark = (m: Mark) => {
+    setChosen((c) => ({ ...c, [m.kind]: m.id }))
+    setTool(m.kind)
+  }
+
   const placeMark = (kind: MarkKind, cx: number, cy: number, fitW?: number, fitH?: number) => {
-    const mark = marks[kind]
+    const mark = markFor(kind)
     if (!mark) {
       onDrawMark(kind)
       return
@@ -160,7 +179,7 @@ export function Editor({ doc, status, marks, dateFormat, hidden, modalOpen, onOp
       w *= s
       h *= s
     }
-    add({ kind: 'image', image: kind, page: pageIndex, x: cx - w / 2, y: cy - h * 0.7, w, h, label: kind === 'signature' ? 'Signature' : 'Initials' })
+    add({ kind: 'image', image: mark.id, page: pageIndex, x: cx - w / 2, y: cy - h * 0.7, w, h, label: mark.name })
   }
 
   const place = (x: number, y: number) => {
@@ -340,7 +359,7 @@ export function Editor({ doc, status, marks, dateFormat, hidden, modalOpen, onOp
         change(sel.id, { x: sel.x + d[0], y: sel.y + d[1] })
       } else {
         const t = TOOLS.find((x) => x.key === e.key.toLowerCase())
-        if (t) setTool(t.id)
+        if (t) pickTool(t.id)
       }
     }
     window.addEventListener('keydown', onKey)
@@ -373,7 +392,7 @@ export function Editor({ doc, status, marks, dateFormat, hidden, modalOpen, onOp
           {TOOLS.map((t) => {
             const I = Icon[t.icon]
             return (
-              <button key={t.id} className="nav" type="button" aria-pressed={tool === t.id} onClick={() => setTool(t.id)}>
+              <button key={t.id} className="nav" type="button" aria-pressed={tool === t.id} onClick={() => pickTool(t.id)}>
                 <I style={tool === t.id ? { color: 'var(--red)' } : undefined} />
                 <span className="grow">{t.label}</span>
                 <span className="hint">{t.key.toUpperCase()}</span>
@@ -381,15 +400,34 @@ export function Editor({ doc, status, marks, dateFormat, hidden, modalOpen, onOp
             )
           })}
         </nav>
-        {(['signature', 'initials'] as const).map((k) => (
-          <div key={k} className="glass" style={{ borderRadius: 14, padding: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <span className="cap">Your {k}</span>
-            {marks[k] ? <img src={marks[k]!.url} alt={`Your saved ${k}`} style={{ height: k === 'signature' ? 40 : 30, objectFit: 'contain', objectPosition: 'left' }} /> : <span className="muted">Not drawn yet</span>}
-            <button type="button" className="link-btn" style={{ alignSelf: 'flex-start' }} onClick={() => onDrawMark(k)}>
-              {marks[k] ? 'Redraw' : 'Draw it'}
+        <div className="glass library">
+          <span className="cap">Signatures</span>
+          {marks.length === 0 && <span className="muted">None saved yet</span>}
+          {marks.map((m) => {
+            const on = tool === m.kind && markFor(m.kind)?.id === m.id
+            return (
+              <button
+                key={m.id}
+                type="button"
+                className="library-item"
+                aria-pressed={on}
+                title={`Place ${m.name}: click it, then click the page`}
+                onClick={() => chooseMark(m)}
+              >
+                <img src={m.url} alt="" />
+                <span className="library-name">{m.name}</span>
+              </button>
+            )
+          })}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 12px' }}>
+            <button type="button" className="link-btn" onClick={() => onDrawMark('signature')}>
+              + Signature
+            </button>
+            <button type="button" className="link-btn" onClick={() => onDrawMark('initials')}>
+              + Initials
             </button>
           </div>
-        ))}
+        </div>
       </Sidebar>
 
       <div className="main">
