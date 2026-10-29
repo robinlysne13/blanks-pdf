@@ -27,13 +27,13 @@ The first run builds the interface, then Blanks opens in its own window. No form
 
 Blanks uses Chrome, Edge or Brave in app mode: a window with no tabs or address bar. Without one of those it opens a normal tab in your default browser. Add `--tab` to always use a tab.
 
-### Keep it in the Dock (macOS)
+### A real Mac app
 
 ```bash
 scripts/make_mac_app.sh
 ```
 
-This builds `Blanks.app` with its own icon in `~/Applications`. Open it, then right-click its Dock icon and choose Options, then Keep in Dock. Clicking it starts Blanks in the background and opens the window, with no terminal needed. The server stops by itself about ten minutes after you close the last Blanks window. The app points at this folder, so run the script again if you move it.
+This builds `Blanks.app` in `~/Applications`: a native app with its own window, menu bar and red icon in the Dock and app switcher, with no browser involved. It needs Xcode's Command Line Tools to compile. Opening it starts the Blanks server from this folder, and quitting it stops the server. Downloads go to your Downloads folder. The app points at this folder, so run the script again if you move it.
 
 ## Auto-fill
 
