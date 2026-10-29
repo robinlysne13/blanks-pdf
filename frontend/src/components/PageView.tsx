@@ -160,8 +160,9 @@ function OverlayView(props: Props & { o: Overlay; isSelected: boolean; isEditing
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditing])
 
-  const clampX = (x: number) => Math.min(Math.max(x, 0), page.width - 4)
-  const clampY = (y: number) => Math.min(Math.max(y, 0), page.height - 4)
+  // Dragging stops at the page's edges, so nothing ends up partly off the page.
+  const clampX = (x: number) => Math.min(Math.max(x, 0), Math.max(0, page.width - Math.max(o.w, 4)))
+  const clampY = (y: number) => Math.min(Math.max(y, 0), Math.max(0, page.height - Math.max(o.h, 4)))
 
   const down = (e: React.PointerEvent<HTMLDivElement>) => {
     if (isEditing) return
@@ -193,7 +194,7 @@ function OverlayView(props: Props & { o: Overlay; isSelected: boolean; isEditing
     const start = { px: e.clientX, w: o.w, h: o.h }
     const el = e.currentTarget
     const onMove = (ev: PointerEvent) => {
-      const w = Math.max(8, start.w + (ev.clientX - start.px) / zoom)
+      const w = Math.min(Math.max(8, start.w + (ev.clientX - start.px) / zoom), page.width - o.x)
       onChange(o.id, { w, h: (w * start.h) / start.w })
     }
     const onUp = () => {

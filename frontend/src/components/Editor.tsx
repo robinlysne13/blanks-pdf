@@ -111,7 +111,11 @@ export function Editor({ doc, status, marks, dateFormat, hidden, modalOpen, onOp
   }
 
   const add = (o: Omit<Overlay, 'id' | 'source'>, edit = false) => {
-    const full: Overlay = { ...o, id: uid(), source: 'user' }
+    // Keep whatever is placed fully on the page, even when clicked near an edge.
+    const pg = doc.pages[o.page] ?? page
+    const x = Math.min(Math.max(o.x, 0), Math.max(0, pg.width - o.w))
+    const y = Math.min(Math.max(o.y, 0), Math.max(0, pg.height - o.h))
+    const full: Overlay = { ...o, x, y, id: uid(), source: 'user' }
     touch()
     setOverlays((list) => [...list, full])
     setSelected(full.id)

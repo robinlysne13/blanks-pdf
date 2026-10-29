@@ -68,7 +68,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         return (res as? HTTPURLResponse)?.statusCode == 200
     }
 
+    /// Keeps the server alive from the app itself (a hidden web page's timers
+    /// get throttled), and starts it again if it ever stops while we're open.
+    func startWatchdog() {
+        Task { @MainActor in
+            while true {
+                try? await Task.sleep(nanoseconds: 30_000_000_000)
+                if await isUp() { continue } // a ping also counts as "still open"
+                if server?.isRunning != true { try? startServer() }
+            }
+        }
+    }
+
     @MainActor func connect() async {
+        defer { startWatchdog() }
         if await !isUp() {
             do { try startServer() } catch {
                 show("Blanks couldn't start", detail: error.localizedDescription)
