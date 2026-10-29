@@ -80,6 +80,12 @@ export const api = {
     return doc
   },
 
+  /** Done with a form: the server forgets it and so does this window. */
+  async close(docId: string) {
+    openFiles.delete(docId)
+    await send(`/api/documents/${docId}`, { method: 'DELETE' })
+  },
+
   async pageImage(docId: string, index: number, scale: number): Promise<string> {
     const res = await call(`/api/documents/${docId}/pages/${index}.png?scale=${scale}`)
     return URL.createObjectURL(await res.blob())

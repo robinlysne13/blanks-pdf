@@ -136,6 +136,16 @@ export default function App() {
     }
   }, [openFile])
 
+  // Done: close the PDF, forget it everywhere, and go back home.
+  const closeDoc = useCallback(() => {
+    if (!doc) return
+    if (dirty.current && !window.confirm('Close this PDF without downloading? Your changes will be lost.')) return
+    void api.close(doc.id).catch(() => {})
+    dirty.current = false
+    setDoc(null)
+    setView('start')
+  }, [doc])
+
   const onDirty = useCallback((d: boolean) => {
     dirty.current = d
   }, [])
@@ -180,6 +190,7 @@ export default function App() {
           onDrawMark={drawMark}
           onToast={showToast}
           onDirty={onDirty}
+          onDone={closeDoc}
         />
       )}
 

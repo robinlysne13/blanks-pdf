@@ -90,6 +90,13 @@ async def open_document(file: UploadFile = File(...)) -> dict[str, Any]:
     return {"id": doc.id, "name": doc.name, **info}
 
 
+@app.delete("/api/documents/{doc_id}")
+def close_document(doc_id: str) -> dict[str, bool]:
+    """Done with a form: forget it. Blanks keeps no copy."""
+    store.remove(doc_id)
+    return {"ok": True}
+
+
 @app.get("/api/documents/{doc_id}/pages/{index}.png")
 async def page_image(doc_id: str, index: int, scale: float = 2.0) -> Response:
     doc = _doc(doc_id)

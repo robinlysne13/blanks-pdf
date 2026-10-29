@@ -36,3 +36,8 @@ def add(name: str, data: bytes) -> Document:
 def get(doc_id: str) -> Document | None:
     with _lock:
         return _docs.get(doc_id)
+
+
+def remove(doc_id: str) -> None:
+    with _lock:
+        _docs.pop(doc_id, None)

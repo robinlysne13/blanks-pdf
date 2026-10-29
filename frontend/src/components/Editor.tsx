@@ -40,9 +40,10 @@ interface Props {
   onDrawMark: (kind: MarkKind, mark?: Mark) => void
   onToast: (message: string) => void
   onDirty: (dirty: boolean) => void
+  onDone: () => void
 }
 
-export function Editor({ doc, status, marks, dateFormat, hidden, modalOpen, onOpenPdf, onSettings, onDrawMark, onToast, onDirty }: Props) {
+export function Editor({ doc, status, marks, dateFormat, hidden, modalOpen, onOpenPdf, onSettings, onDrawMark, onToast, onDirty, onDone }: Props) {
   const groups = useMemo(() => fieldGroups(doc), [doc])
   const groupMap = useMemo(() => new Map(groups.map((g) => [g.name, g])), [groups])
   const [values, setValues] = useState<Record<string, FieldValue>>(() => initialValues(doc))
@@ -452,6 +453,10 @@ export function Editor({ doc, status, marks, dateFormat, hidden, modalOpen, onOp
           <button className="pill pill-red" type="button" onClick={() => setDownloading(true)}>
             <Icon.download size={17} />
             Download
+          </button>
+          <button className="pill pill-glass" type="button" onClick={onDone} title="Close this PDF and go back home">
+            <Icon.check size={17} />
+            Done
           </button>
         </header>
 

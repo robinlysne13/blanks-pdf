@@ -187,3 +187,9 @@ def test_library_survives_parallel_requests(png_bytes, blanks_home):
     with ThreadPoolExecutor(8) as pool:
         results = list(pool.map(lambda _: config.list_marks(), range(16)))
     assert all(r == [{"id": "signature", "name": "My signature", "kind": "signature"}] for r in results)
+
+
+def test_done_forgets_the_document(client, fillable_pdf):
+    doc = _open(client, fillable_pdf)
+    assert client.delete(f"/api/documents/{doc['id']}", headers=H).status_code == 200
+    assert client.get(f"/api/documents/{doc['id']}/pages/0.png?scale=1", headers=H).status_code == 404
