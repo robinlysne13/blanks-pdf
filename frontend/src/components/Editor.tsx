@@ -4,6 +4,7 @@ import { formatDate } from '../dates'
 import { Icon } from '../icons'
 import { fieldGroups, initialValues, uid } from '../model'
 import type { DateFormat, FieldValue, Mark, MarkKind, OpenDoc, Overlay, Status, Tool } from '../types'
+import { ChatPanel, type ChatMsg } from './ChatPanel'
 import { DownloadDialog } from './DownloadDialog'
 import { FieldsPanel } from './FieldsPanel'
 import { PageView } from './PageView'
@@ -53,6 +54,10 @@ export function Editor({ doc, status, marks, dateFormat, hidden, modalOpen, onOp
   const [auto, setAuto] = useState<AutoState>({ state: 'idle' })
   const [missing, setMissing] = useState<Set<string>>(new Set())
   const [downloading, setDownloading] = useState(false)
+  const [panelTab, setPanelTab] = useState<'fields' | 'chat'>('fields')
+  const [chat, setChat] = useState<ChatMsg[]>([])
+  const [chatBusy, setChatBusy] = useState(false)
+  const chatUndo = useRef(new Map<string, () => void>())
   const [stageWidth, setStageWidth] = useState(MAX_PAGE_WIDTH)
   const [images, setImages] = useState<Record<string, string>>({})
   const stageRef = useRef<HTMLDivElement>(null)
@@ -232,6 +237,79 @@ export function Editor({ doc, status, marks, dateFormat, hidden, modalOpen, onOp
     } catch (e) {
       setAuto({ state: 'error', message: e instanceof Error ? e.message : String(e) })
     }
+  }
+
+  // --------------------------------------------------------------- chat
+
+  const sendChat = async (text: string) => {
+    const mine: ChatMsg = { id: uid(), role: 'user', text }
+    const history = [...chat, mine]
+    setChat(history)
+    setChatBusy(true)
+    try {
+      const r = await api.chat(doc.id, {
+        messages: history.filter((m) => m.role !== 'error').map((m) => ({ role: m.role, text: m.text })),
+        values: Object.fromEntries(Object.entries(values).map(([k, v]) => [k, v.value])),
+        overlays: overlays.map(({ id, kind, page, x, y, text: t, label }) => ({ id, kind, page, x, y, text: t, label })),
+      })
+      touch()
+      // Only count what actually changes (an unticked box "unticked" again isn't news).
+      const names = Object.keys(r.values).filter((k) => r.values[k] !== values[k]?.value)
+      const changed = Object.fromEntries(names.map((k) => [k, r.values[k]]))
+      const beforeValues = Object.fromEntries(names.map((k) => [k, values[k]]))
+      if (names.length) {
+        setValues((v) => {
+          const next = { ...v }
+          for (const [k, val] of Object.entries(changed)) next[k] = { value: val, source: val === '' ? 'user' : 'claude' }
+          return next
+        })
+      }
+      const added: Overlay[] = r.placements.map((p) => ({
+        id: uid(),
+        kind: 'text',
+        page: p.page,
+        x: p.x,
+        y: p.y,
+        w: p.text.length * p.fontSize * 0.5,
+        h: p.fontSize * 1.2,
+        text: p.text,
+        fontSize: p.fontSize,
+        source: 'claude',
+        label: p.label || 'Text',
+      }))
+      const beforeText = new Map(r.edits.map((e) => [e.id, overlays.find((o) => o.id === e.id)?.text ?? '']))
+      if (added.length || r.edits.length) {
+        const edits = new Map(r.edits.map((e) => [e.id, e.text]))
+        setOverlays((list) => [...list.map((o) => (edits.has(o.id) ? { ...o, text: edits.get(o.id), source: 'claude' as const } : o)), ...added])
+        if (added.length && !added.some((o) => o.page === pageIndex)) setPageIndex(added[0].page)
+      }
+
+      const bits = [
+        names.length && `${names.length === 1 ? 'Filled 1 field' : `Filled ${names.length} fields`}`,
+        added.length && `added ${added.length} ${added.length === 1 ? 'box' : 'boxes'}`,
+        r.edits.length && `changed ${r.edits.length}`,
+      ].filter(Boolean) as string[]
+      const summary = bits.length ? bits.join(', ').replace(/^./, (c) => c.toUpperCase()) : undefined
+      const reply: ChatMsg = { id: uid(), role: 'assistant', text: r.reply, summary, canUndo: bits.length > 0 }
+      if (bits.length) {
+        const addedIds = new Set(added.map((o) => o.id))
+        chatUndo.current.set(reply.id, () => {
+          if (names.length) setValues((v) => ({ ...v, ...beforeValues }))
+          setOverlays((list) => list.filter((o) => !addedIds.has(o.id)).map((o) => (beforeText.has(o.id) ? { ...o, text: beforeText.get(o.id) } : o)))
+        })
+      }
+      setChat((c) => [...c, reply])
+    } catch (e) {
+      setChat((c) => [...c, { id: uid(), role: 'error', text: e instanceof Error ? e.message : String(e) }])
+    } finally {
+      setChatBusy(false)
+    }
+  }
+
+  const undoChat = (id: string) => {
+    chatUndo.current.get(id)?.()
+    chatUndo.current.delete(id)
+    setChat((c) => c.map((m) => (m.id === id ? { ...m, undone: true } : m)))
   }
 
   // ----------------------------------------------------------- keyboard
@@ -417,16 +495,37 @@ export function Editor({ doc, status, marks, dateFormat, hidden, modalOpen, onOp
             )}
           </div>
 
-          <FieldsPanel
-            groups={groups}
-            values={values}
-            missing={missing}
-            overlays={overlays}
-            selected={selected}
-            isScan={!doc.pages.some((p) => p.has_text)}
-            onFieldChange={setField}
-            onPick={pick}
-          />
+          <aside className={`panel glass${panelTab === 'chat' ? ' panel-chat' : ''}`} aria-label="Form details">
+            <div className="tabs" role="tablist" aria-label="Panel">
+              <button type="button" role="tab" aria-selected={panelTab === 'fields'} onClick={() => setPanelTab('fields')}>
+                {groups.length ? 'Fields' : 'On the page'}
+              </button>
+              <button type="button" role="tab" aria-selected={panelTab === 'chat'} onClick={() => setPanelTab('chat')}>
+                Chat with Claude
+              </button>
+            </div>
+            {panelTab === 'fields' ? (
+              <FieldsPanel
+                groups={groups}
+                values={values}
+                missing={missing}
+                overlays={overlays}
+                selected={selected}
+                isScan={!doc.pages.some((p) => p.has_text)}
+                onFieldChange={setField}
+                onPick={pick}
+              />
+            ) : (
+              <ChatPanel
+                messages={chat}
+                busy={chatBusy}
+                ready={claudeReady}
+                isScan={!doc.is_fillable}
+                onSend={(t) => void sendChat(t)}
+                onUndo={undoChat}
+              />
+            )}
+          </aside>
         </div>
       </div>
 

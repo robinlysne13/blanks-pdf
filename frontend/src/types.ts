@@ -85,3 +85,10 @@ export interface Mark {
   /** width / height of the saved image */
   aspect: number
 }
+
+export interface ChatResult {
+  reply: string
+  values: Record<string, string | boolean>
+  placements: { page: number; x: number; y: number; text: string; label: string; fontSize: number }[]
+  edits: { id: string; text: string }[]
+}

@@ -134,6 +134,34 @@ async def run_autofill(doc_id: str) -> dict[str, Any]:
         raise HTTPException(422, str(e)) from e
 
 
+class ChatBody(BaseModel):
+    messages: list[dict[str, str]] = Field(max_length=60)
+    values: dict[str, Any] = Field(default_factory=dict)
+    overlays: list[dict[str, Any]] = Field(default_factory=list)
+
+
+@app.post("/api/documents/{doc_id}/chat")
+async def run_chat(doc_id: str, body: ChatBody) -> dict[str, Any]:
+    doc = _doc(doc_id)
+    if any(len(m.get("text", "")) > 30_000 for m in body.messages):
+        raise HTTPException(413, "That message is too long. Paste the part that matters.")
+    info = await run_in_threadpool(pdf.inspect, doc.data)
+    settings = config.read_settings()
+    try:
+        return await run_in_threadpool(
+            autofill.chat,
+            doc.data,
+            info,
+            config.read_profile(),
+            body.messages,
+            body.values,
+            body.overlays,
+            bool(settings["send_images"]),
+        )
+    except autofill.AutofillError as e:
+        raise HTTPException(422, str(e)) from e
+
+
 # ------------------------------------------------------------------- marks
 
 

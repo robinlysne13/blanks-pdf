@@ -122,3 +122,11 @@ def test_example_profile_has_no_entries_until_filled(client):
     assert config.profile_entries(config.read_profile()) == []
     rows = client.get("/api/profile", headers=H).json()["rows"]
     assert rows and all(r["value"] == "" and r["hint"] for r in rows)
+
+
+def test_chat_endpoint(client, fillable_pdf, monkeypatch):
+    monkeypatch.setattr(autofill, "runner", lambda *a: {"reply": "Done.", "fills": [{"name": "email", "value": "a@b.c"}], "placements": [], "edits": []})
+    doc = _open(client, fillable_pdf)
+    r = client.post(f"/api/documents/{doc['id']}/chat", headers=H, json={"messages": [{"role": "user", "text": "my email is a@b.c"}]})
+    assert r.status_code == 200
+    assert r.json()["values"] == {"email": "a@b.c"}

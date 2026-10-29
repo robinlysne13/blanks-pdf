@@ -142,6 +142,30 @@ a:hover { color: #7a1a12; }
 .floatbar button:hover { background: rgba(255, 255, 255, 0.12); }
 .floatbar .danger { color: #fca5a5; }
 
+/* side panel: tabs, fields, chat */
+.panel > .tabs { align-self: stretch; }
+.panel > .tabs button { flex: 1; padding: 0 10px; font-size: 13px; }
+.panel-body { display: flex; flex-direction: column; gap: 14px; }
+.panel-chat { height: calc(100vh - 36px); max-height: none; min-height: 460px; }
+.chat { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 12px; }
+.chat-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 2px; }
+.chat-empty { display: flex; flex-direction: column; gap: 12px; color: var(--muted); font-size: 14px; line-height: 1.5; }
+.chat-empty p { margin: 0; }
+.chat-examples { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip-btn { border: none; border-radius: 16px; padding: 7px 12px; font-size: 13px; background: rgba(255, 255, 255, 0.75); color: var(--ink-2); cursor: pointer; box-shadow: inset 0 0 0 1px rgba(17, 24, 39, 0.06); }
+.chip-btn:hover { background: #fff; }
+.bubble { max-width: 92%; padding: 10px 13px; border-radius: 16px; font-size: 14px; line-height: 1.45; display: flex; flex-direction: column; gap: 8px; }
+.bubble-text { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 260px; overflow-y: auto; }
+.bubble-user { align-self: flex-end; background: var(--red-tint); color: var(--ink); border-bottom-right-radius: 6px; }
+.bubble-assistant { align-self: flex-start; background: var(--claude); color: var(--claude-ink); border-bottom-left-radius: 6px; }
+.bubble-error { align-self: flex-start; background: var(--warn-bg); color: var(--warn-ink); }
+.bubble-busy { flex-direction: row; align-items: center; gap: 10px; }
+.bubble-meta { display: flex; align-items: center; gap: 10px; }
+.chat-compose { display: flex; flex-direction: column; gap: 8px; }
+.chat-compose textarea { width: 100%; min-height: 76px; max-height: 220px; resize: vertical; border: none; border-radius: 14px; padding: 10px 12px; font-size: 14px; line-height: 1.45; background: rgba(255, 255, 255, 0.8); box-shadow: inset 0 0 0 1px rgba(17, 24, 39, 0.08); color: var(--ink); }
+.chat-compose textarea:focus { outline: none; box-shadow: inset 0 0 0 2px var(--red); }
+.chat-compose-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+
 /* side panel rows */
 .pin { display: flex; flex-direction: column; gap: 6px; }
 .pin label, .pin .lbl { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }

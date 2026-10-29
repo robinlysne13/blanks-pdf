@@ -53,6 +53,10 @@ The profile lives at `~/.blanks/profile.md`, outside the repo, so it can never b
 
 ![On a scanned intake form, Claude has placed text boxes on the right lines](docs/autofill-scan.jpg)
 
+### Chat
+
+The **Chat with Claude** tab beside the form fills it by conversation. Tell Claude what to put where, or paste an email or letter, and it fills what fits: from what you say, what you paste, and your profile. It can tick choices you name, edits text it placed earlier, and asks when something is unclear. Each reply has an **Undo** for the changes it made. Pasted text is treated as information only, so instructions hidden inside an email are ignored.
+
 Claude's values stay highlighted in blue until you edit them. The download dialog warns you about any you haven't checked.
 
 ### What Claude sees

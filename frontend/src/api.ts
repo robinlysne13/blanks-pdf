@@ -1,4 +1,4 @@
-import type { AutofillResult, MarkKind, OpenDoc, Settings, Status } from './types'
+import type { AutofillResult, ChatResult, MarkKind, OpenDoc, Settings, Status } from './types'
 
 // Every API call carries this header. The server refuses calls without it,
 // which keeps other websites from talking to Blanks on localhost.
@@ -66,6 +66,13 @@ export const api = {
   },
 
   autofill: (docId: string) => json<AutofillResult>(`/api/documents/${docId}/autofill`, { method: 'POST' }),
+
+  chat: (docId: string, body: { messages: { role: string; text: string }[]; values: Record<string, unknown>; overlays: unknown[] }) =>
+    json<ChatResult>(`/api/documents/${docId}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
 
   async mark(kind: MarkKind): Promise<Blob | null> {
     try {

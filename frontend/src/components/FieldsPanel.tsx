@@ -20,7 +20,7 @@ export function FieldsPanel({ groups, values, missing, overlays, selected, isSca
   const fromYou = overlays.filter((o) => o.source !== 'claude')
 
   return (
-    <aside className="panel glass" aria-label="Form details">
+    <div className="panel-body">
       {groups.length > 0 && (
         <>
           <div className="panel-head">
@@ -94,7 +94,7 @@ export function FieldsPanel({ groups, values, missing, overlays, selected, isSca
           Editing a blue value turns it normal. Drag anything on the page to move it.
         </p>
       )}
-    </aside>
+    </div>
   )
 }
 
