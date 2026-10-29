@@ -54,7 +54,7 @@ export function Editor({ doc, status, marks, dateFormat, hidden, modalOpen, onOp
   const [auto, setAuto] = useState<AutoState>({ state: 'idle' })
   const [missing, setMissing] = useState<Set<string>>(new Set())
   const [downloading, setDownloading] = useState(false)
-  const [panelTab, setPanelTab] = useState<'fields' | 'chat'>('fields')
+  const [panelTab, setPanelTab] = useState<'fields' | 'chat'>('chat')
   const [chat, setChat] = useState<ChatMsg[]>([])
   const [chatBusy, setChatBusy] = useState(false)
   const chatUndo = useRef(new Map<string, () => void>())
@@ -497,11 +497,11 @@ export function Editor({ doc, status, marks, dateFormat, hidden, modalOpen, onOp
 
           <aside className={`panel glass${panelTab === 'chat' ? ' panel-chat' : ''}`} aria-label="Form details">
             <div className="tabs" role="tablist" aria-label="Panel">
+              <button type="button" role="tab" aria-selected={panelTab === 'chat'} onClick={() => setPanelTab('chat')}>
+                Chat
+              </button>
               <button type="button" role="tab" aria-selected={panelTab === 'fields'} onClick={() => setPanelTab('fields')}>
                 {groups.length ? 'Fields' : 'On the page'}
-              </button>
-              <button type="button" role="tab" aria-selected={panelTab === 'chat'} onClick={() => setPanelTab('chat')}>
-                Chat with Claude
               </button>
             </div>
             {panelTab === 'fields' ? (

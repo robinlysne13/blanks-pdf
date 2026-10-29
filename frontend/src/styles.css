@@ -103,7 +103,7 @@ a:hover { color: #7a1a12; }
 .banner-claude { background: rgba(191, 227, 239, 0.75); color: var(--claude-ink); }
 .banner-error { background: var(--warn-bg); color: var(--warn-ink); }
 .workspace { flex: 1; display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
-.stage { flex: 999 1 480px; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.stage { flex: 999 1 400px; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 14px; }
 .panel { flex: 1 1 260px; max-width: 340px; border-radius: 20px; padding: 20px; display: flex; flex-direction: column; gap: 14px; position: sticky; top: 18px; max-height: calc(100vh - 36px); overflow-y: auto; }
 .panel h2 { margin: 0; font-size: 17px; font-weight: 500; letter-spacing: -0.02em; }
 .panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
@@ -146,7 +146,7 @@ a:hover { color: #7a1a12; }
 .panel > .tabs { align-self: stretch; }
 .panel > .tabs button { flex: 1; padding: 0 10px; font-size: 13px; }
 .panel-body { display: flex; flex-direction: column; gap: 14px; }
-.panel-chat { height: calc(100vh - 36px); max-height: none; min-height: 460px; }
+.panel-chat { height: calc(100vh - 112px); max-height: none; min-height: 420px; }
 .chat { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 12px; }
 .chat-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 2px; }
 .chat-empty { display: flex; flex-direction: column; gap: 12px; color: var(--muted); font-size: 14px; line-height: 1.5; }
